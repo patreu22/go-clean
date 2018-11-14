@@ -10,24 +10,13 @@ import (
 	"github.com/micro/go-plugins/broker/nats"
 )
 
-type Say struct{}
-
-// func (s *Say) Hello(ctx context.Context, req, rsp) error {
-// 	log.Print("Received Say.Hello request")
-// 	rsp.Msg = "Hello " + req.Name
-// 	return nil
-// }
+var (
+	natsUri   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	queueName = "GoMicro_SimulatorData"
+)
 
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs("nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"))
-
-	// Addrs     []string
-	// Secure    bool
-	// Codec     codec.Codec
-	// TLSConfig *tls.Config
-	// // Other options for implementations of the interface
-	// // can be stored in a context
-	// Context context.Context
+	natsBroker := nats.NewBroker(broker.Addrs(natsUri))
 
 	service := micro.NewService(
 		micro.Name("go.micro.mapmatcher"),
@@ -40,15 +29,16 @@ func main() {
 	service.Init()
 
 	//Connect to Nats
-	broker.Connect()
-	fmt.Printf("Connected?\n")
+	var connect = natsBroker.Connect()
+	fmt.Printf("Connected? %s\n", connect)
+
 	//broker.Subscribe("GoMicro_SimulatorData", func(Publication) {
 
 	natsBroker.Subscribe(
-		"GoMicro_SimulatorData",
+		queueName,
 		broker.Handler(func(p broker.Publication) error {
-			fmt.Printf("Whoop, whoop, subscription received!")
-			fmt.Printf(p.Topic())
+			fmt.Printf("Whoop, whoop, subscription received!\n")
+			fmt.Printf(string(p.Message().Body) + "\n")
 			return nil
 		}),
 	)
@@ -61,10 +51,11 @@ func main() {
 	}
 
 	natsBroker.Publish(
-		"GoMicro_SimulatorData",
+		queueName,
 		&msg,
 	)
 
+	fmt.Printf("Probably published!\n")
 	// Register Handlers
 	//hello.RegisterSayHandler(service.Server(), new(Say))
 
