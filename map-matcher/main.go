@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -11,12 +12,23 @@ import (
 )
 
 var (
-	natsUri   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
-	queueName = "GoMicro_SimulatorData"
+	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	subscribeQueueName = "GoMicro_SimulatorData"
+	publishQueueName   = "GoMicro_MapMatcher"
 )
 
+// MockedReceivingMessage comment
+type MockedReceivingMessage struct {
+	MessageID int
+	CarID     int
+	Timestamp string
+	Accuracy  int
+	Lat       float32
+	Lon       float32
+}
+
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsUri))
+	natsBroker := nats.NewBroker(broker.Addrs(natsURI))
 
 	service := micro.NewService(
 		micro.Name("go.micro.mapmatcher"),
@@ -29,33 +41,35 @@ func main() {
 	service.Init()
 
 	//Connect to Nats
-	var connect = natsBroker.Connect()
-	fmt.Printf("Connected? %s\n", connect)
-
-	//broker.Subscribe("GoMicro_SimulatorData", func(Publication) {
+	natsBroker.Connect()
 
 	natsBroker.Subscribe(
-		queueName,
+		subscribeQueueName,
 		broker.Handler(func(p broker.Publication) error {
-			fmt.Printf("Whoop, whoop, subscription received!\n")
-			fmt.Printf(string(p.Message().Body) + "\n")
+			fmt.Printf("HELLOOO!!!")
+			var msgBody = p.Message().Body
+			fmt.Printf("HELLO!")
+			fmt.Printf(string(msgBody))
+			var msg MockedReceivingMessage
+			err := json.Unmarshal(msgBody, &msg)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			processMessage(MockedReceivingMessage(msg))
 			return nil
 		}),
 	)
 
-	var msg = broker.Message{
-		map[string]string{
-			"header": "Hi, this is the Header",
-		},
-		[]byte("Hello NATS!"),
-	}
+	// var msg = broker.Message{
+	// 	map[string]string{},
+	// 	[]byte("Hello NATS!"),
+	// }
 
-	natsBroker.Publish(
-		queueName,
-		&msg,
-	)
+	// natsBroker.Publish(
+	// 	publishQueueName,
+	// 	&msg,
+	// )
 
-	fmt.Printf("Probably published!\n")
 	// Register Handlers
 	//hello.RegisterSayHandler(service.Server(), new(Say))
 
@@ -63,4 +77,8 @@ func main() {
 	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func processMessage(msg MockedReceivingMessage) {
+	fmt.Printf("---------------\n")
 }
