@@ -13,7 +13,7 @@ import (
 var (
 	natsServerAddress   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	natsRawSimDataQueue = "GoMicro_SimulatorData"
-	nats_broker         broker.Broker
+	globalBroker        broker.Broker
 )
 
 //SimulatorAPI : Used to PushData
@@ -35,7 +35,7 @@ func (s *SimulatorAPI) PushData(req *restful.Request, rsp *restful.Response) {
 	msgData := SimulatorDataMessage{
 		MessageID: 1,
 		CarID:     2,
-		Timestamp: "xx-xx-xxx",
+		Timestamp: "yyyy-mm-dd hh:MM:ss",
 		Accuracy:  3,
 		Lat:       1.23,
 		Lon:       2.34,
@@ -50,7 +50,7 @@ func (s *SimulatorAPI) PushData(req *restful.Request, rsp *restful.Response) {
 		Body:   msgDataJSON,
 	}
 
-	nats_broker.Publish(natsRawSimDataQueue, &msg)
+	globalBroker.Publish(natsRawSimDataQueue, &msg)
 	fmt.Printf("Published")
 
 	rsp.WriteEntity(map[string]string{
@@ -68,7 +68,7 @@ func main() {
 
 	service.Init()
 	natsBroker.Connect()
-	nats_broker = natsBroker
+	globalBroker = natsBroker
 
 	// Create RESTful handler
 	simAPI := new(SimulatorAPI)
