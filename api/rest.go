@@ -13,6 +13,7 @@ import (
 var (
 	natsServerAddress   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	natsRawSimDataQueue = "GoMicro_SimulatorData"
+	nats_broker         broker.Broker
 )
 
 //SimulatorAPI : Used to PushData
@@ -31,22 +32,6 @@ type SimulatorDataMessage struct {
 //PushData : post mockup simulation data via rest API
 func (s *SimulatorAPI) PushData(req *restful.Request, rsp *restful.Response) {
 	log.Print("Received SimulatorApi.PushData API request")
-
-	rsp.WriteEntity(map[string]string{
-		"message": "Pushed mockup dimulation data to NATS queue",
-	})
-}
-
-func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsServerAddress))
-
-	// Create service
-	service := web.NewService(
-		web.Name("go.micro.api.mockup"),
-	)
-
-	service.Init()
-	natsBroker.Connect()
 	msgData := SimulatorDataMessage{
 		MessageID: 1,
 		CarID:     2,
@@ -65,8 +50,25 @@ func main() {
 		Body:   msgDataJSON,
 	}
 
-	natsBroker.Publish(natsRawSimDataQueue, &msg)
+	nats_broker.Publish(natsRawSimDataQueue, &msg)
 	fmt.Printf("Published")
+
+	rsp.WriteEntity(map[string]string{
+		"message": "Pushed mockup dimulation data to NATS queue",
+	})
+}
+
+func main() {
+	natsBroker := nats.NewBroker(broker.Addrs(natsServerAddress))
+
+	// Create service
+	service := web.NewService(
+		web.Name("go.micro.api.mockup"),
+	)
+
+	service.Init()
+	natsBroker.Connect()
+	nats_broker = natsBroker
 
 	// Create RESTful handler
 	simAPI := new(SimulatorAPI)

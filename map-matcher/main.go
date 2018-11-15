@@ -9,7 +9,6 @@ import (
 	"github.com/micro/go-micro"
 	"github.com/micro/go-micro/broker"
 	"github.com/micro/go-plugins/broker/nats"
-	// "github.com/nats-io/go-nats"
 )
 
 var (
@@ -18,7 +17,7 @@ var (
 	publishQueueName   = "GoMicro_MapMatcher"
 )
 
-// MockedReceivingMessage comment
+//SimulatorDataMessage comment
 type SimulatorDataMessage struct {
 	MessageID int
 	CarID     int
@@ -51,8 +50,8 @@ func main() {
 			// fmt.Printf(msgBody)
 			// rawIn := json.RawMessage(msgBody)
 			var msg SimulatorDataMessage
-			rawMsg := json.RawMessage(msgBody)
-			bytes, err := rawMsg.MarshalJSON()
+			rawJSON_msg := json.RawMessage(msgBody)
+			bytes, err := rawJSON_msg.MarshalJSON()
 			if err != nil {
 				panic(err)
 			}
@@ -85,6 +84,6 @@ func main() {
 	}
 }
 
-func processMessage(msg MockedReceivingMessage) {
+func processMessage(msg SimulatorDataMessage) {
 	fmt.Printf("---------------\n")
 }
