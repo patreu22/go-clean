@@ -16,11 +16,10 @@ var (
 	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
-	// natsConn           *nats.Conn
 )
 
 // MockedReceivingMessage comment
-type MockedReceivingMessage struct {
+type SimulatorDataMessage struct {
 	MessageID int
 	CarID     int
 	Timestamp string
@@ -51,9 +50,9 @@ func main() {
 			var msgBody = p.Message().Body
 			// fmt.Printf(msgBody)
 			// rawIn := json.RawMessage(msgBody)
-			var msg MockedReceivingMessage
-			rawIn := json.RawMessage(msgBody)
-			bytes, err := rawIn.MarshalJSON()
+			var msg SimulatorDataMessage
+			rawMsg := json.RawMessage(msgBody)
+			bytes, err := rawMsg.MarshalJSON()
 			if err != nil {
 				panic(err)
 			}
@@ -62,21 +61,10 @@ func main() {
 				fmt.Println("error:", err)
 			}
 			fmt.Printf("%+v\n", msg)
-			processMessage(MockedReceivingMessage(msg))
+			processMessage(SimulatorDataMessage(msg))
 			return nil
 		}),
 	)
-
-	// nc, err := nats.Connect(natsURI)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// } else {
-	// 	natsConn = nc
-	// }
-
-	// natsConn.Subscribe(subscribeQueueName, func(m *nats.Msg) {
-	// 	fmt.Printf("Received a message: %s\n", string(m.Data))
-	// })
 
 	var msg = broker.Message{
 		map[string]string{},
