@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  consul-service:
+    build: ./consul
+  api-service:
+    build: ./api
+    links:
+      - consul-service
+    depends_on:
+      - consul-service
