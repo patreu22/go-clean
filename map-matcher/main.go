@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/micro/go-micro"
@@ -104,6 +106,13 @@ func processMessage(msg SimulatorDataMessage) {
 			},
 		},
 	}
+	resp, err := http.Get("http://localhost:5000/nearest/v1/car/13.20084,52.51738")
+	if err != nil {
+		fmt.Printf("--- OSRM error----\n")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Printf("--- OSRM output----\n" + body.toString())
 	fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
 	publishMapMatcherMessage(msgData)
 }

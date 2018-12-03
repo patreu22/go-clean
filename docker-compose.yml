@@ -9,3 +9,4 @@ services:
       - consul-service
     depends_on:
       - consul-service
+  
