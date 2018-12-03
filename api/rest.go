@@ -63,7 +63,7 @@ func main() {
 
 	// Create service
 	service := web.NewService(
-		web.Name("go.micro.api.mockup"),
+		web.Name("apimockup"),
 	)
 
 	service.Init()
