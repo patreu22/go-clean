@@ -3,17 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/emicklei/go-restful"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-plugins/broker/nats"
-	"github.com/micro/go-web"
+	"github.com/nats-io/go-nats"
 	"log"
+	"net/http"
 )
 
 var (
 	natsServerAddress   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	natsRawSimDataQueue = "GoMicro_SimulatorData"
-	globalBroker        broker.Broker
+	nc                  *nats.Conn
+	port                = 80
 )
 
 //SimulatorAPI : Used to PushData
@@ -30,7 +29,7 @@ type SimulatorDataMessage struct {
 }
 
 //PushData : post mockup simulation data via rest API
-func (s *SimulatorAPI) PushData(req *restful.Request, rsp *restful.Response) {
+func (s *SimulatorAPI) PushData(w http.ResponseWriter, r *http.Request) {
 	log.Print("Received SimulatorApi.PushData API request")
 	msgData := SimulatorDataMessage{
 		MessageID: 1,
@@ -40,51 +39,36 @@ func (s *SimulatorAPI) PushData(req *restful.Request, rsp *restful.Response) {
 		Lat:       1.23,
 		Lon:       2.34,
 	}
+
 	msgDataJSON, err := json.Marshal(msgData)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	msg := broker.Message{
-		Header: map[string]string{},
-		Body:   msgDataJSON,
+	nc.Publish(natsRawSimDataQueue, msgDataJSON)
+
+	responseMsg := map[string]string{
+		"message": "Pushed mockup dimulation data to NATS queue",
+		"data":    string(msgDataJSON),
 	}
 
-	globalBroker.Publish(natsRawSimDataQueue, &msg)
-	fmt.Printf("Published")
+	responseMsgJSON, err := json.Marshal(responseMsg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	rsp.WriteEntity(map[string]string{
-		"message": "Pushed mockup dimulation data to NATS queue",
-	})
+	w.Write(responseMsgJSON)
+	fmt.Printf("Published following message:\n")
+	fmt.Printf(string(responseMsgJSON))
 }
 
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsServerAddress))
+	nc, _ := nats.Connect(natsServerAddress)
+	nc.Subscribe(natsRawSimDataQueue, func(m *nats.Msg) {
+		fmt.Printf("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
+		fmt.Printf("Received a message: %s\n", string(m.Data))
+	})
 
-	// Create service
-	service := web.NewService(
-		web.Name("apimockup"),
-	)
-
-	service.Init()
-	natsBroker.Connect()
-	globalBroker = natsBroker
-
-	// Create RESTful handler
-	simAPI := new(SimulatorAPI)
-	ws := new(restful.WebService)
-	wc := restful.NewContainer()
-	ws.Consumes(restful.MIME_XML, restful.MIME_JSON)
-	ws.Produces(restful.MIME_JSON, restful.MIME_XML)
-	ws.Path("/simulator")
-	ws.Route(ws.POST("/").To(simAPI.PushData))
-	wc.Add(ws)
-
-	// Register Handler
-	service.Handle("/", wc)
-
-	// Run server
-	if err := service.Run(); err != nil {
-		log.Fatal(err)
-	}
+	http.HandleFunc("/simulator", new(SimulatorAPI).PushData)
+	http.ListenAndServe(":80", nil)
 }
