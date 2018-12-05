@@ -11,9 +11,9 @@ import (
 
 var (
 	natsServerAddress = os.Getenv("NATS_URI")
-	//"nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	// natsServerAddress = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	natsRawSimDataQueue = "GoMicro_SimulatorData"
-	nc                  *nats.Conn
+	globalNatsConn      *nats.Conn
 	port                = 80
 )
 
@@ -47,7 +47,7 @@ func (s *SimulatorAPI) PushData(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	nc.Publish(natsRawSimDataQueue, msgDataJSON)
+	globalNatsConn.Publish(natsRawSimDataQueue, msgDataJSON)
 
 	responseMsg := map[string]string{
 		"message": "Pushed mockup dimulation data to NATS queue",

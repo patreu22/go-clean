@@ -4,24 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-plugins/broker/nats"
+	"github.com/nats-io/go-nats"
+	// "io/ioutil"
 	"log"
+	"net/http"
+	"os"
 	"time"
 )
 
 var (
-	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	natsURI = os.Getenv("NATS_URI")
+	// "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
-	globalBroker       broker.Broker
+	carLocDict         map[int]map[string][]string // car id to locations dict; example id:locations:[.., .., .., ]
+	globalNatsConn     *nats.Conn
 )
-
-//Coordinates Struct to unite a Latitude and Longitude to one location
-type Coordinates struct {
-	Lat float32
-	Lon float32
-}
 
 //SimulatorDataMessage Data received by the Simulator
 type SimulatorDataMessage struct {
@@ -45,13 +43,17 @@ type MapMatcherMessage struct {
 	Route     []Coordinates
 }
 
+//Coordinates Struct to unite a Latitude and Longitude to one location
+type Coordinates struct {
+	Lat float32
+	Lon float32
+}
+
 func (m MapMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsURI))
-
 	service := micro.NewService(
 		micro.Name("mapmatcher"),
 		micro.RegisterTTL(time.Second*30),
@@ -60,30 +62,27 @@ func main() {
 
 	// optionally setup command line usage
 	service.Init()
+	nc, err := nats.Connect(natsURI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	globalNatsConn = nc
 
-	//Connect to Nats
-	natsBroker.Connect()
-	natsBroker.Subscribe(
-		subscribeQueueName,
-		broker.Handler(func(p broker.Publication) error {
-			var msgBody = p.Message().Body
-			var msg SimulatorDataMessage
-			rawJSONMsg := json.RawMessage(msgBody)
-			bytes, err := rawJSONMsg.MarshalJSON()
-			if err != nil {
-				panic(err)
-			}
-			err2 := json.Unmarshal(bytes, &msg)
-			if err2 != nil {
-				fmt.Println("error:", err)
-			}
-			fmt.Println("--- RECEIVED ---\n" + msg.toString())
-			processMessage(msg)
-			return nil
-		}),
-	)
+	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
+		fmt.Printf("Received a message: %s\n", string(m.Data))
+		var msg SimulatorDataMessage
+		rawJSONMsg := json.RawMessage(m.Data)
+		bytes, err := rawJSONMsg.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
+		err2 := json.Unmarshal(bytes, &msg)
+		if err2 != nil {
+			fmt.Println("error:", err)
+		}
+		processMessage(msg)
 
-	globalBroker = natsBroker
+	})
 
 	// Run server
 	if err := service.Run(); err != nil {
@@ -92,19 +91,37 @@ func main() {
 }
 
 func processMessage(msg SimulatorDataMessage) {
-	msgData := MapMatcherMessage{
-		MessageID: msg.MessageID,
-		CarID:     msg.CarID,
-		Timestamp: msg.Timestamp,
-		Route: []Coordinates{
-			Coordinates{
-				Lat: msg.Lat,
-				Lon: msg.Lon,
-			},
-		},
+	// msgData := MapMatcherMessage{
+	// 	MessageID: msg.MessageID,
+	// 	CarID:     msg.CarID,
+	// 	Timestamp: msg.Timestamp,
+	// 	Route: []Coordinates{
+	// 		Coordinates{
+	// 			Lat: msg.Lat,
+	// 			Lon: msg.Lon,
+	// 		},
+	// 	},
+	// }
+
+	lonLatString := carLocDict[msg.CarID]["Coordinates"][0]
+
+	if lonLatString == "" {
+		carLocDict[msg.CarID]["Coordinates"][0] = fmt.Sprintf("%f", msg.Lon) + "," + fmt.Sprintf("%f", msg.Lat)
+		return
+	} else {
+		delete(carLocDict, msg.CarID)
+		resp, err := http.Get("http://localhost:5000/match/v1/car/" + lonLatString + ";" + fmt.Sprintf("%f", msg.Lon) + "," + fmt.Sprintf("%f", msg.Lat))
+		if err != nil {
+			fmt.Printf("--- OSRM error----\n")
+		}
+		defer resp.Body.Close()
+		// body, err := ioutil.ReadAll(resp.Body)
+		// fmt.Printf("--- OSRM output----\n")
+
 	}
-	fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
-	publishMapMatcherMessage(msgData)
+
+	// fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
+	// publishMapMatcherMessage(msgData)
 }
 
 func publishMapMatcherMessage(msg MapMatcherMessage) {
@@ -113,17 +130,9 @@ func publishMapMatcherMessage(msg MapMatcherMessage) {
 		log.Fatal(err)
 	}
 
-	messageToSend := broker.Message{
-		Header: map[string]string{},
-		Body:   msgDataJSON,
-	}
+	globalNatsConn.Publish(publishQueueName, msgDataJSON)
 
 	fmt.Printf("--- Data to Publish in Body---\n" + msg.toString())
-
-	globalBroker.Publish(
-		publishQueueName,
-		&messageToSend,
-	)
 
 	fmt.Printf("--- Publishing process completed ---")
 }
