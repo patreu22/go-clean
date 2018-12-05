@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 )
 
 var (
@@ -39,8 +38,8 @@ func (s *SimulatorAPI) PushData(w http.ResponseWriter, r *http.Request) {
 		CarID:     2,
 		Timestamp: "yyyy-mm-dd hh:MM:ss",
 		Accuracy:  3,
-		Lat:       1.23,
-		Lon:       2.34,
+		Lat:       13.296343,
+		Lon:       52.528917,
 	}
 
 	msgDataJSON, err := json.Marshal(msgData)
@@ -79,10 +78,6 @@ func main() {
 		log.Print("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		log.Printf("Received a message: %s\n", string(m.Data))
 	})
-
-	time.Sleep(2 * time.Second)
-
-	globalNatsConn.Publish(natsRawSimDataQueue, []byte("{stiff: stiff}"))
 
 	http.HandleFunc("/simulator", new(SimulatorAPI).PushData)
 	http.ListenAndServe(":80", nil)

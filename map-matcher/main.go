@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/micro/go-micro"
 	"github.com/nats-io/go-nats"
-	// "io/ioutil"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -17,7 +17,7 @@ var (
 	// "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
-	messageQueue       map[int][]SimulatorDataMessage // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueue       = make(map[int][]SimulatorDataMessage) // car id to locations dict; example id:locations:[.., .., .., ]
 	globalNatsConn     *nats.Conn
 )
 
@@ -48,14 +48,38 @@ type Coordinates struct {
 	Lat float32
 	Lon float32
 }
+type CoordinatesOSRM struct {
+	Lon float32
+	Lat float32
+}
 
 func (m MapMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+type OSRMResponse struct {
+	Code        string
+	Tracepoints []Tracepoints
+}
+
+type Tracepoints struct {
+	alternativesCount int
+	location          []CoordinatesOSRM // OSRM returns reversed coordinates
+	hint              string
+	name              string
+	matchinIndex      int
+	waypointIndex     int
+}
+
+func (r OSRMResponse) toString() string {
+	return fmt.Sprintf("%+v\n", r)
+}
+
 func pushToMessageQueue(ms SimulatorDataMessage) {
 
 	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
+
+	fmt.Println(messageQueue[ms.CarID])
 
 	if len(messageQueue[ms.CarID]) >= 2 {
 		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
@@ -68,7 +92,6 @@ func pushToMessageQueue(ms SimulatorDataMessage) {
 }
 
 func main() {
-	fmt.Printf("Hallo")
 	service := micro.NewService(
 		micro.Name("mapmatcher"),
 		micro.RegisterTTL(time.Second*30),
@@ -85,23 +108,22 @@ func main() {
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
 		fmt.Printf("Received a message: %s\n", string(m.Data))
-		// var msg SimulatorDataMessage
-		// rawJSONMsg := json.RawMessage(m.Data)
-		// bytes, err := rawJSONMsg.MarshalJSON()
-		// if err != nil {
-		// 	panic(err)
-		// }
-		// err2 := json.Unmarshal(bytes, &msg)
-		// if err2 != nil {
-		// 	fmt.Println("error:", err)
-		// }
-		// pushToMessageQueue(msg)
+		var msg SimulatorDataMessage
+		rawJSONMsg := json.RawMessage(m.Data)
+		bytes, err := rawJSONMsg.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
+		err2 := json.Unmarshal(bytes, &msg)
+		if err2 != nil {
+			fmt.Println("error:", err)
+		}
+
+		pushToMessageQueue(msg)
 
 	})
 
-	time.Sleep(2 * time.Second)
-
-	globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
+	// globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
 
 	// Run server
 	if err := service.Run(); err != nil {
@@ -122,12 +144,24 @@ func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
 	// 	},
 	// }
 
-	resp, err := http.Get("http://localhost:5000/match/v1/car/" + fmt.Sprintf("%f", msg1.Lon) + "," + fmt.Sprintf("%f", msg1.Lat) + ";" + fmt.Sprintf("%f", msg2.Lon) + "," + fmt.Sprintf("%f", msg2.Lat))
+	resp, err := http.Get("http://localhost:5000/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Lon) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Lon))
 	if err != nil {
 		fmt.Printf("--- OSRM error----\n")
 	}
 	defer resp.Body.Close()
-	// body, err := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	var osrmRes OSRMResponse
+	rawJSON := json.RawMessage(body)
+	bytes, err := rawJSON.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+	err2 := json.Unmarshal(bytes, &osrmRes)
+	if err2 != nil {
+		fmt.Println("error:", err)
+	}
+
+	fmt.Println(osrmRes.toString())
 	// msgData := MapMatcherMessage{
 	// 	MessageID: msg1.MessageID,
 	// 	CarID:     msg1.CarID,
