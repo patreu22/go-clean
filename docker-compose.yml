@@ -31,11 +31,20 @@ services:
       - MICRO_REGISTRY=consul
       - MICRO_REGISTRY_ADDRESS=consul
       - NATS_URI=nats://nats:4222
+      - OSRM_SERVER_URI=osrm-server:5000
     depends_on:
       - nats
     links:
       - consul
       - nats
+  osrm-server:
+    image: osrm/osrm-backend
+    build:
+      context: .
+      dockerfile: ./OSRM/Dockerfile.osrm
+    ports:
+      - 5000:5000
+    command: bash -c "osrm-routed --algorithm mld berlin-latest.osrm"
   # microweb:
   #   image: microhq/micro
   #   command: web --address=0.0.0.0:8080

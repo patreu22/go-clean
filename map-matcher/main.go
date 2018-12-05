@@ -14,6 +14,7 @@ import (
 
 var (
 	natsURI = os.Getenv("NATS_URI")
+	osrmURI = os.Getenv("OSRM_SERVER_URI")
 	// "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
@@ -80,12 +81,13 @@ func pushToMessageQueue(ms SimulatorDataMessage) {
 	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
 
 	fmt.Println(messageQueue[ms.CarID])
+	fmt.Println(len(messageQueue[ms.CarID]))
 
 	if len(messageQueue[ms.CarID]) >= 2 {
 		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
 		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
 		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
-		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-2]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
 		processMessage(msg1, msg2)
 	}
 
@@ -144,9 +146,11 @@ func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
 	// 	},
 	// }
 
-	resp, err := http.Get("http://localhost:5000/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Lon) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Lon))
+	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Lon) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Lon) + "?radiuses=50.0;50.0")
 	if err != nil {
 		fmt.Printf("--- OSRM error----\n")
+		fmt.Println(err)
+		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
