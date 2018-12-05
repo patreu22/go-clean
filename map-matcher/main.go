@@ -3,17 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/micro/go-micro"
 	"github.com/nats-io/go-nats"
 	// "io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
-
-	"github.com/micro/go-micro"
 )
 
 var (
-	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	natsURI = os.Getenv("NATS_URI")
+	// "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
 	messageQueue       map[int][]SimulatorDataMessage // car id to locations dict; example id:locations:[.., .., .., ]
@@ -69,15 +70,17 @@ func pushToMessageQueue(ms SimulatorDataMessage) {
 func main() {
 	fmt.Printf("Hallo")
 	service := micro.NewService(
-		micro.Name("go.micro.mapmatcher"),
+		micro.Name("mapmatcher"),
 		micro.RegisterTTL(time.Second*30),
 		micro.RegisterInterval(time.Second*10),
 	)
 
 	// optionally setup command line usage
 	service.Init()
-
-	nc, _ := nats.Connect(natsURI)
+	nc, err := nats.Connect(natsURI)
+	if err != nil {
+		log.Fatal(err)
+	}
 	globalNatsConn = nc
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
