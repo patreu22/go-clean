@@ -1,41 +1,49 @@
 version: '3'
 
 services:
-  nats:
-    image: nats:latest
-    entrypoint: "/gnatsd -DV"
-    expose:
-      - 4222
+  # nats:
+  #   image: nats:latest
+  #   entrypoint: "/gnatsd -DV"
+  #   expose:
+  #     - 4222
+  #   ports:
+  #     - 8222:8222
+  #   hostname: nats-server
+  # consul:
+  #   image: consul:latest
+  #   command: consul agent -dev -log-level=warn -ui -client=0.0.0.0
+  #   hostname: consul
+  #   ports:
+  #     - 8300:8300
+  #     - 8500:8500
+  #     - 8600:8600
+  # api:
+  #   build: ./api
+  #   environment:
+  #     - NATS_URI=nats://nats:4222
+  #   depends_on:
+  #     - nats
+  #   ports:
+  #     - 8080:80
+  # map-matcher:
+  #   build: ./map-matcher
+  #   environment:
+  #     - MICRO_REGISTRY=consul
+  #     - MICRO_REGISTRY_ADDRESS=consul
+  #     - NATS_URI=nats://nats:4222
+  #   depends_on:
+  #     - nats
+  #   links:
+  #     - consul
+  #     - nats
+  osrm-server:
+    image: osrm/osrm-backend
+    build:
+      context: .
+      dockerfile: ./osrm/Dockerfile.osrm
     ports:
-      - 8222:8222
-    hostname: nats-server
-  consul:
-    image: consul:latest
-    command: consul agent -dev -log-level=warn -ui -client=0.0.0.0
-    hostname: consul
-    ports:
-      - 8300:8300
-      - 8500:8500
-      - 8600:8600
-  api:
-    build: ./api
-    environment:
-      - NATS_URI=nats://nats:4222
-    depends_on:
-      - nats
-    ports:
-      - 8080:80
-  map-matcher:
-    build: ./map-matcher
-    environment:
-      - MICRO_REGISTRY=consul
-      - MICRO_REGISTRY_ADDRESS=consul
-      - NATS_URI=nats://nats:4222
-    depends_on:
-      - nats
-    links:
-      - consul
-      - nats
+      - 5000:5000
+    command: bash -c "osrm-routed --algorithm mld berlin-latest.osrm"
   # microweb:
   #   image: microhq/micro
   #   command: web --address=0.0.0.0:8080

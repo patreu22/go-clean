@@ -99,9 +99,9 @@ func main() {
 
 	})
 
-	time.Sleep(2 * time.Second)
-
-	globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
+	//Keep that for tests
+	//time.Sleep(2 * time.Second)
+	//globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
 
 	// Run server
 	if err := service.Run(); err != nil {
