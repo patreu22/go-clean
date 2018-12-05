@@ -85,17 +85,17 @@ func main() {
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
 		fmt.Printf("Received a message: %s\n", string(m.Data))
-		var msg SimulatorDataMessage
-		rawJSONMsg := json.RawMessage(m.Data)
-		bytes, err := rawJSONMsg.MarshalJSON()
-		if err != nil {
-			panic(err)
-		}
-		err2 := json.Unmarshal(bytes, &msg)
-		if err2 != nil {
-			fmt.Println("error:", err)
-		}
-		pushToMessageQueue(msg)
+		// var msg SimulatorDataMessage
+		// rawJSONMsg := json.RawMessage(m.Data)
+		// bytes, err := rawJSONMsg.MarshalJSON()
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// err2 := json.Unmarshal(bytes, &msg)
+		// if err2 != nil {
+		// 	fmt.Println("error:", err)
+		// }
+		// pushToMessageQueue(msg)
 
 	})
 

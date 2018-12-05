@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
@@ -72,10 +73,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	nc.Subscribe(natsRawSimDataQueue, func(m *nats.Msg) {
+	globalNatsConn = nc
+
+	globalNatsConn.Subscribe(natsRawSimDataQueue, func(m *nats.Msg) {
 		log.Print("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		log.Printf("Received a message: %s\n", string(m.Data))
 	})
+
+	time.Sleep(2 * time.Second)
+
+	globalNatsConn.Publish(natsRawSimDataQueue, []byte("{stiff: stiff}"))
 
 	http.HandleFunc("/simulator", new(SimulatorAPI).PushData)
 	http.ListenAndServe(":80", nil)
