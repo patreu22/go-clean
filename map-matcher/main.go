@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/go-nats"
-	"io/ioutil"
+	// "io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -16,7 +16,7 @@ var (
 	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
-	carLocDict         map[int]map[string][]string // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueue       map[int][]SimulatorDataMessage // car id to locations dict; example id:locations:[.., .., .., ]
 	globalNatsConn     *nats.Conn
 )
 
@@ -52,7 +52,22 @@ func (m MapMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+func pushToMessageQueue(ms SimulatorDataMessage) {
+
+	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
+
+	if len(messageQueue[ms.CarID]) >= 2 {
+		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
+		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-2]
+		processMessage(msg1, msg2)
+	}
+
+}
+
 func main() {
+	fmt.Printf("Hallo")
 	service := micro.NewService(
 		micro.Name("go.micro.mapmatcher"),
 		micro.RegisterTTL(time.Second*30),
@@ -61,6 +76,7 @@ func main() {
 
 	// optionally setup command line usage
 	service.Init()
+
 	nc, _ := nats.Connect(natsURI)
 	globalNatsConn = nc
 
@@ -76,9 +92,13 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-		processMessage(msg)
+		pushToMessageQueue(msg)
 
 	})
+
+	time.Sleep(2 * time.Second)
+
+	globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
 
 	// Run server
 	if err := service.Run(); err != nil {
@@ -86,7 +106,7 @@ func main() {
 	}
 }
 
-func processMessage(msg SimulatorDataMessage) {
+func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
 	// msgData := MapMatcherMessage{
 	// 	MessageID: msg.MessageID,
 	// 	CarID:     msg.CarID,
@@ -99,22 +119,24 @@ func processMessage(msg SimulatorDataMessage) {
 	// 	},
 	// }
 
-	lonLatString := carLocDict[msg.CarID]["Coordinates"][0]
-
-	if lonLatString == "" {
-		carLocDict[msg.CarID]["Coordinates"][0] = fmt.Sprintf("%f", msg.Lon) + "," + fmt.Sprintf("%f", msg.Lat)
-		return
-	} else {
-		delete(carLocDict, msg.CarID)
-		resp, err := http.Get("http://localhost:5000/match/v1/car/" + lonLatString + ";" + fmt.Sprintf("%f", msg.Lon) + "," + fmt.Sprintf("%f", msg.Lat))
-		if err != nil {
-			fmt.Printf("--- OSRM error----\n")
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		fmt.Printf("--- OSRM output----\n")
-
+	resp, err := http.Get("http://localhost:5000/match/v1/car/" + fmt.Sprintf("%f", msg1.Lon) + "," + fmt.Sprintf("%f", msg1.Lat) + ";" + fmt.Sprintf("%f", msg2.Lon) + "," + fmt.Sprintf("%f", msg2.Lat))
+	if err != nil {
+		fmt.Printf("--- OSRM error----\n")
 	}
+	defer resp.Body.Close()
+	// body, err := ioutil.ReadAll(resp.Body)
+	// msgData := MapMatcherMessage{
+	// 	MessageID: msg1.MessageID,
+	// 	CarID:     msg1.CarID,
+	// 	Timestamp: msg1.Timestamp,
+	// 	Route: []Coordinates{
+	// 		Coordinates{
+	// 			Lat: msg1.Lat,
+	// 			Lon: msg1.Lon,
+	// 		},
+	// 	},
+	// }
+	fmt.Printf("--- OSRM output----\n")
 
 	// fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
 	// publishMapMatcherMessage(msgData)
