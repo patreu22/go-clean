@@ -2,8 +2,7 @@ FROM osrm/osrm-backend
 RUN apt-get update
 RUN apt-get install -y wget
 RUN wget http://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
-RUN ls
-RUN osrm-extract berlin-latest.osm.pbf
+RUN osrm-extract -p /opt/car.lua berlin-latest.osm.pbf
 RUN osrm-partition berlin-latest.osrm
 RUN osrm-customize berlin-latest.osrm
 EXPOSE 5000
