@@ -3,12 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/micro/go-micro"
 	"github.com/micro/go-micro/broker"
 	"github.com/micro/go-plugins/broker/nats"
+	"log"
+	"time"
 )
 
 var (
@@ -54,7 +53,7 @@ func main() {
 	natsBroker := nats.NewBroker(broker.Addrs(natsURI))
 
 	service := micro.NewService(
-		micro.Name("go.micro.mapmatcher"),
+		micro.Name("mapmatcher"),
 		micro.RegisterTTL(time.Second*30),
 		micro.RegisterInterval(time.Second*10),
 	)

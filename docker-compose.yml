@@ -1,32 +1,33 @@
 version: '3'
 
 services:
+  nats:
+    image: nats:latest
+    entrypoint: "/gnatsd -DV"
+    expose:
+      - 4222
+    ports:
+      - 8222:8222
+    hostname: nats-server
   consul:
     image: progrium/consul:latest
     command: -server -bootstrap -rejoin
     ports:
+      - 8300:8300
       - 8500:8500
       - 8600:8600
   api-service:
     image: api-container
+    environment:
+      - "NATS_URI=nats://nats:4222"
+    depends_on:
+      - nats
     ports:
-      - "3000:3000"
-      - "8081:8080"
+      - 8080:80
+  map-matcher:
+    image: map-matcher-container
     environment:
       - MICRO_REGISTRY=consul
       - MICRO_REGISTRY_ADDRESS=consul
-      - p=4567
     links:
       - consul
-  # microweb:
-  #   image: microhq/micro
-  #   command: web --address=0.0.0.0:8080
-  #   ports:
-  #     - "90:8080"
-  #   environment:
-  #     - MICRO_REGISTRY=consul
-  #     - MICRO_REGISTRY_ADDRESS=consul
-  #     - MICRO_API_NAMESPACE=microsweb
-  #   links:
-  #     - consul
-  #     - api-service

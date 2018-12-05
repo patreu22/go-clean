@@ -6,10 +6,12 @@ import (
 	"github.com/nats-io/go-nats"
 	"log"
 	"net/http"
+	"os"
 )
 
 var (
-	natsServerAddress   = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	natsServerAddress = os.Getenv("NATS_URI")
+	//"nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	natsRawSimDataQueue = "GoMicro_SimulatorData"
 	nc                  *nats.Conn
 	port                = 80
@@ -58,15 +60,21 @@ func (s *SimulatorAPI) PushData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(responseMsgJSON)
-	fmt.Printf("Published following message:\n")
-	fmt.Printf(string(responseMsgJSON))
+	log.Print("Published following message:")
+	log.Print(string(responseMsgJSON))
+	log.Print("==============================")
 }
 
 func main() {
-	nc, _ := nats.Connect(natsServerAddress)
+	fmt.Println("Retrieved Nats URI from Environment: " + natsServerAddress)
+	nc, err := nats.Connect(natsServerAddress)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	nc.Subscribe(natsRawSimDataQueue, func(m *nats.Msg) {
-		fmt.Printf("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Printf("Received a message: %s\n", string(m.Data))
+		log.Print("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
+		log.Printf("Received a message: %s\n", string(m.Data))
 	})
 
 	http.HandleFunc("/simulator", new(SimulatorAPI).PushData)
