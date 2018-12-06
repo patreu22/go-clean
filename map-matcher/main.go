@@ -14,12 +14,13 @@ import (
 
 var (
 	natsURI = os.Getenv("NATS_URI")
-	osrmURI = os.Getenv("OSRM_SERVER_URI")
-	// "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	osrmURI = os.Getenv("OSRM_URI")
+	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	subscribeQueueName = "GoMicro_SimulatorData"
 	publishQueueName   = "GoMicro_MapMatcher"
-	messageQueue       = make(map[int][]SimulatorDataMessage) // car id to locations dict; example id:locations:[.., .., .., ]
 	globalNatsConn     *nats.Conn
+	messageQueue       = make(map[int][]SimulatorDataMessage) // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueueLength = 2
 )
 
 //SimulatorDataMessage Data received by the Simulator
@@ -49,10 +50,6 @@ type Coordinates struct {
 	Lat float32
 	Lon float32
 }
-type CoordinatesOSRM struct {
-	Lon float32
-	Lat float32
-}
 
 func (m MapMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
@@ -64,12 +61,13 @@ type OSRMResponse struct {
 }
 
 type Tracepoints struct {
-	alternativesCount int
-	location          []CoordinatesOSRM // OSRM returns reversed coordinates
-	hint              string
-	name              string
-	matchinIndex      int
-	waypointIndex     int
+	AternativesCount int
+	Location         []float32
+	Distance         float32
+	Hint             string
+	Name             string
+	MatchinIndex     int
+	WaypointIndex    int
 }
 
 func (r OSRMResponse) toString() string {
@@ -80,10 +78,7 @@ func pushToMessageQueue(ms SimulatorDataMessage) {
 
 	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
 
-	fmt.Println(messageQueue[ms.CarID])
-	fmt.Println(len(messageQueue[ms.CarID]))
-
-	if len(messageQueue[ms.CarID]) >= 2 {
+	if len(messageQueue[ms.CarID]) >= messageQueueLength {
 		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
 		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
 		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
@@ -125,8 +120,6 @@ func main() {
 
 	})
 
-	// globalNatsConn.Publish(subscribeQueueName, []byte("{stuff: stuff}"))
-
 	// Run server
 	if err := service.Run(); err != nil {
 		log.Fatal(err)
@@ -134,17 +127,6 @@ func main() {
 }
 
 func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
-	// msgData := MapMatcherMessage{
-	// 	MessageID: msg.MessageID,
-	// 	CarID:     msg.CarID,
-	// 	Timestamp: msg.Timestamp,
-	// 	Route: []Coordinates{
-	// 		Coordinates{
-	// 			Lat: msg.Lat,
-	// 			Lon: msg.Lon,
-	// 		},
-	// 	},
-	// }
 
 	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Lon) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Lon) + "?radiuses=50.0;50.0")
 	if err != nil {
@@ -165,22 +147,23 @@ func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
 		fmt.Println("error:", err)
 	}
 
-	fmt.Println(osrmRes.toString())
-	// msgData := MapMatcherMessage{
-	// 	MessageID: msg1.MessageID,
-	// 	CarID:     msg1.CarID,
-	// 	Timestamp: msg1.Timestamp,
-	// 	Route: []Coordinates{
-	// 		Coordinates{
-	// 			Lat: msg1.Lat,
-	// 			Lon: msg1.Lon,
-	// 		},
-	// 	},
-	// }
 	fmt.Printf("--- OSRM output----\n")
+	fmt.Println(osrmRes.toString())
+
+	msgData := MapMatcherMessage{
+		MessageID: msg1.MessageID,
+		CarID:     msg1.CarID,
+		Timestamp: time.Now().Local().Format("2000-01-02 07:55:31"),
+		Route: []Coordinates{
+			Coordinates{
+				Lat: osrmRes.Tracepoints[0].Location[0],
+				Lon: osrmRes.Tracepoints[0].Location[1],
+			},
+		},
+	}
 
 	// fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
-	// publishMapMatcherMessage(msgData)
+	publishMapMatcherMessage(msgData)
 }
 
 func publishMapMatcherMessage(msg MapMatcherMessage) {
@@ -190,8 +173,6 @@ func publishMapMatcherMessage(msg MapMatcherMessage) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-
-	fmt.Printf("--- Data to Publish in Body---\n" + msg.toString())
 
 	fmt.Printf("--- Publishing process completed ---")
 }

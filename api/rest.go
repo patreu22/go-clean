@@ -73,10 +73,6 @@ func main() {
 
 	globalNatsConn = nc
 
-	globalNatsConn.Subscribe(natsRawSimDataQueue, func(m *nats.Msg) {
-		log.Printf("Received a message: %s\n", string(m.Data))
-	})
-
 	http.HandleFunc("/simulator", new(SimulatorAPI).PushData)
 	http.ListenAndServe(":80", nil)
 }

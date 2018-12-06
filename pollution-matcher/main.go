@@ -3,19 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-plugins/broker/nats"
+	"github.com/nats-io/go-nats"
+	"log"
+	"os"
+	"time"
 )
 
 var (
-	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	natsURI            = os.Getenv("NATS_URI")
 	subscribeQueueName = "GoMicro_MapMatcher"
 	publishQueueName   = "GoMicro_PollutionMatcher"
-	globalBroker       broker.Broker
+	globalNatsConn     *nats.Conn
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -56,7 +55,6 @@ func (m PollutionMatcherMessage) toString() string {
 }
 
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsURI))
 
 	service := micro.NewService(
 		micro.Name("go.micro.pollutionmatcher"),
@@ -66,30 +64,28 @@ func main() {
 
 	// optionally setup command line usage
 	service.Init()
+	nc, err := nats.Connect(natsURI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	globalNatsConn = nc
 
-	//Connect to Nats
-	natsBroker.Connect()
-	natsBroker.Subscribe(
-		subscribeQueueName,
-		broker.Handler(func(p broker.Publication) error {
-			var msgBody = p.Message().Body
-			var msg MapMatcherMessage
-			rawJSONMsg := json.RawMessage(msgBody)
-			bytes, err := rawJSONMsg.MarshalJSON()
-			if err != nil {
-				panic(err)
-			}
-			err2 := json.Unmarshal(bytes, &msg)
-			if err2 != nil {
-				fmt.Println("error:", err)
-			}
-			fmt.Println("--- RECEIVED ---\n" + msg.toString())
-			processMessage(msg)
-			return nil
-		}),
-	)
+	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
+		fmt.Printf("Received a message: %s\n", string(m.Data))
+		var msg MapMatcherMessage
+		rawJSONMsg := json.RawMessage(m.Data)
+		bytes, err := rawJSONMsg.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
+		err2 := json.Unmarshal(bytes, &msg)
+		if err2 != nil {
+			fmt.Println("error:", err)
+		}
 
-	globalBroker = natsBroker
+		processMessage(msg)
+
+	})
 
 	// Run server
 	if err := service.Run(); err != nil {
@@ -129,17 +125,7 @@ func publishMapMatcherMessage(msg PollutionMatcherMessage) {
 		log.Fatal(err)
 	}
 
-	messageToSend := broker.Message{
-		Header: map[string]string{},
-		Body:   msgDataJSON,
-	}
-
-	fmt.Printf("--- Data to Publish in Body---\n" + msg.toString())
-
-	globalBroker.Publish(
-		publishQueueName,
-		&messageToSend,
-	)
+	globalNatsConn.Publish(publishQueueName, msgDataJSON)
 
 	fmt.Printf("--- Publishing process completed ---")
 }

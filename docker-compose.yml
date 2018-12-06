@@ -31,7 +31,29 @@ services:
       - MICRO_REGISTRY=consul
       - MICRO_REGISTRY_ADDRESS=consul
       - NATS_URI=nats://nats:4222
-      - OSRM_SERVER_URI=osrm-server:5000
+      - OSRM_URI=osrm-server:5000
+    depends_on:
+      - nats
+    links:
+      - consul
+      - nats
+  pollution-matcher:
+    build: ./pollution-matcher
+    environment:
+      - MICRO_REGISTRY=consul
+      - MICRO_REGISTRY_ADDRESS=consul
+      - NATS_URI=nats://nats:4222
+    depends_on:
+      - nats
+    links:
+      - consul
+      - nats
+  price-calculator:
+    build: ./toll-calculator
+    environment:
+      - MICRO_REGISTRY=consul
+      - MICRO_REGISTRY_ADDRESS=consul
+      - NATS_URI=nats://nats:4222
     depends_on:
       - nats
     links:
@@ -45,15 +67,4 @@ services:
     ports:
       - 5000:5000
     command: bash -c "osrm-routed --algorithm mld berlin-latest.osrm"
-  # microweb:
-  #   image: microhq/micro
-  #   command: web --address=0.0.0.0:8080
-  #   ports:
-  #     - "80:8080"
-  #   environment:
-  #     - MICRO_REGISTRY=consul
-  #     - MICRO_REGISTRY_ADDRESS=consul
-  #     - MICRO_API_NAMESPACE=microsweb
-  #   links:
-  #     - consul
-  #     - api-service
+
