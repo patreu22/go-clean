@@ -60,11 +60,11 @@ services:
       - consul
       - nats
   osrm-server:
-    image: osrm/osrm-backend
+    image: osrm/osrm-backend:v5.20.0
     build:
       context: .
       dockerfile: ./osrm/Dockerfile.osrm
     ports:
       - 5000:5000
-    command: bash -c "osrm-routed --algorithm mld berlin-latest.osrm"
+    command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
 
