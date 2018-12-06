@@ -3,19 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/nats-io/go-nats"
 	"log"
+	"os"
 	"time"
 
 	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-plugins/broker/nats"
 )
 
 var (
-	natsURI            = "nats://nats:IoslProject2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
+	natsURI            = os.Getenv("NATS_URI")
 	subscribeQueueName = "GoMicro_PollutionMatcher"
 	// publishQueueName   = "--- UNDEFINED ---"
-	globalBroker broker.Broker
+	globalNatsConn *nats.Conn
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -44,7 +44,6 @@ func (m PollutionMatcherMessage) toString() string {
 }
 
 func main() {
-	natsBroker := nats.NewBroker(broker.Addrs(natsURI))
 
 	service := micro.NewService(
 		micro.Name("go.micro.tollcalculator"),
@@ -55,29 +54,28 @@ func main() {
 	// optionally setup command line usage
 	service.Init()
 
-	//Connect to Nats
-	natsBroker.Connect()
-	natsBroker.Subscribe(
-		subscribeQueueName,
-		broker.Handler(func(p broker.Publication) error {
-			var msgBody = p.Message().Body
-			var msg PollutionMatcherMessage
-			rawJSONMsg := json.RawMessage(msgBody)
-			bytes, err := rawJSONMsg.MarshalJSON()
-			if err != nil {
-				panic(err)
-			}
-			err2 := json.Unmarshal(bytes, &msg)
-			if err2 != nil {
-				fmt.Println("error:", err)
-			}
-			fmt.Println("--- RECEIVED ---\n" + msg.toString())
-			processMessage(msg)
-			return nil
-		}),
-	)
+	nc, err := nats.Connect(natsURI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	globalNatsConn = nc
 
-	globalBroker = natsBroker
+	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
+		fmt.Printf("Received a message: %s\n", string(m.Data))
+		var msg PollutionMatcherMessage
+		rawJSONMsg := json.RawMessage(m.Data)
+		bytes, err := rawJSONMsg.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
+		err2 := json.Unmarshal(bytes, &msg)
+		if err2 != nil {
+			fmt.Println("error:", err)
+		}
+
+		processMessage(msg)
+
+	})
 
 	// Run server
 	if err := service.Run(); err != nil {
