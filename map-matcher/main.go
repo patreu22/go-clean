@@ -16,21 +16,27 @@ var (
 	natsURI = os.Getenv("NATS_URI")
 	osrmURI = os.Getenv("OSRM_URI")
 	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
-	subscribeQueueName = "GoMicro_SimulatorData"
+	// subscribeQueueName = "GoMicro_SimulatorData"
+	subscribeQueueName = "MOL-iosl2018.EVENTB.toll-simulator.location.update"
 	publishQueueName   = "GoMicro_MapMatcher"
 	globalNatsConn     *nats.Conn
-	messageQueue       = make(map[int][]SimulatorDataMessage) // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueue       = make(map[int][]SimulatorDataMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
 )
 
 //SimulatorDataMessage Data received by the Simulator
-type SimulatorDataMessage struct {
-	MessageID int
-	CarID     int
+type SimulatorDataMessageData struct {
+	MessageId int
+	CarId     int
 	Timestamp string
 	Accuracy  int
-	Lat       float32
-	Lon       float32
+	Lat       float64
+	Long      float64
+}
+
+type SimulatorDataMessage struct {
+	Event string
+	Data  SimulatorDataMessageData
 }
 
 func (s SimulatorDataMessage) toString() string {
@@ -47,8 +53,8 @@ type MapMatcherMessage struct {
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat float32
-	Lon float32
+	Lat  float64
+	Long float64
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -62,8 +68,8 @@ type OSRMResponse struct {
 
 type Tracepoints struct {
 	AternativesCount int
-	Location         []float32
-	Distance         float32
+	Location         []float64
+	Distance         float64
 	Hint             string
 	Name             string
 	MatchinIndex     int
@@ -74,15 +80,15 @@ func (r OSRMResponse) toString() string {
 	return fmt.Sprintf("%+v\n", r)
 }
 
-func pushToMessageQueue(ms SimulatorDataMessage) {
+func pushToMessageQueue(ms SimulatorDataMessageData) {
 
-	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
+	messageQueue[ms.CarId] = append(messageQueue[ms.CarId], ms)
 
-	if len(messageQueue[ms.CarID]) >= messageQueueLength {
-		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
-		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
-		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
-		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
+	if len(messageQueue[ms.CarId]) >= messageQueueLength {
+		msg1 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-1]
+		msg2 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-2]
+		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
+		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
 		processMessage(msg1, msg2)
 	}
 
@@ -116,7 +122,7 @@ func main() {
 			fmt.Println("error:", err)
 		}
 
-		pushToMessageQueue(msg)
+		pushToMessageQueue(msg.Data)
 
 	})
 
@@ -126,11 +132,10 @@ func main() {
 	}
 }
 
-func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
-
-	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Lon) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Lon) + "?radiuses=50.0;50.0")
+func processMessage(msg1 SimulatorDataMessageData, msg2 SimulatorDataMessageData) {
+	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Long) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Long) + "?radiuses=100.0;100.0")
 	if err != nil {
-		fmt.Printf("--- OSRM error----\n")
+		fmt.Printf("--- OSRM error!----\n")
 		fmt.Println(err)
 		return
 	}
@@ -151,13 +156,13 @@ func processMessage(msg1 SimulatorDataMessage, msg2 SimulatorDataMessage) {
 	fmt.Println(osrmRes.toString())
 
 	msgData := MapMatcherMessage{
-		MessageID: msg1.MessageID,
-		CarID:     msg1.CarID,
+		MessageID: msg1.MessageId,
+		CarID:     msg1.CarId,
 		Timestamp: time.Now().Local().Format("2000-01-02 07:55:31"),
 		Route: []Coordinates{
 			Coordinates{
-				Lat: osrmRes.Tracepoints[0].Location[0],
-				Lon: osrmRes.Tracepoints[0].Location[1],
+				Lat:  osrmRes.Tracepoints[0].Location[0],
+				Long: osrmRes.Tracepoints[0].Location[1],
 			},
 		},
 	}
