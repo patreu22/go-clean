@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   nats:
@@ -59,12 +59,11 @@ services:
     links:
       - consul
       - nats
-  osrm-server:
-    image: osrm/osrm-backend:v5.20.0
-    build:
-      context: .
-      dockerfile: ./osrm/Dockerfile.osrm
-    ports:
-      - 5000:5000
-    command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
-
+  # osrm-server:
+  #   image: osrm/osrm-backend:v5.20.0
+  #   build:
+  #     context: .
+  #     dockerfile: ./osrm/Dockerfile.osrm
+  #   ports:
+  #     - 5000:5000
+  #   command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
