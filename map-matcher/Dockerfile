@@ -1,5 +1,5 @@
 #!/bin/bash
-FROM goclean-base
+FROM patreu22/goclean-base:latest
 RUN mkdir /app
 ADD main.go /app/
 WORKDIR /app

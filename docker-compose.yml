@@ -25,6 +25,14 @@ services:
   #     - nats
   #   ports:
   #     - 8080:80
+  # osrm-server:
+  #   image: osrm/osrm-backend:v5.20.0
+  #   build:
+  #     context: .
+  #     dockerfile: ./osrm/Dockerfile.osrm
+  #   ports:
+  #     - 5000:5000
+  #   command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
   map-matcher:
     build: ./map-matcher
     environment:
@@ -59,11 +67,3 @@ services:
     links:
       - consul
       - nats
-  # osrm-server:
-  #   image: osrm/osrm-backend:v5.20.0
-  #   build:
-  #     context: .
-  #     dockerfile: ./osrm/Dockerfile.osrm
-  #   ports:
-  #     - 5000:5000
-  #   command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
