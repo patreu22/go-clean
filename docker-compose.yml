@@ -26,10 +26,7 @@ services:
   #   ports:
   #     - 8080:80
   # osrm-server:
-  #   image: osrm/osrm-backend:v5.20.0
-  #   build:
-  #     context: .
-  #     dockerfile: ./osrm/Dockerfile.osrm
+  #   image: patreu22/ioslab-osrm-image:latest
   #   ports:
   #     - 5000:5000
   #   command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
