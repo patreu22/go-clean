@@ -1,5 +1,0 @@
-#!/bin/bash
-FROM golang:latest
-RUN go get "github.com/nats-io/go-nats"
-RUN go get "github.com/micro/go-micro"
-
