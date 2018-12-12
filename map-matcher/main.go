@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -20,18 +21,18 @@ var (
 	subscribeQueueName = "MOL-iosl2018.EVENTB.toll-simulator.location.update"
 	publishQueueName   = "GoMicro_MapMatcher"
 	globalNatsConn     *nats.Conn
-	messageQueue       = make(map[int][]SimulatorDataMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueue       = make(map[string][]SimulatorDataMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
 )
 
 //SimulatorDataMessage Data received by the Simulator
 type SimulatorDataMessageData struct {
 	MessageId int
-	CarId     int
+	CarId     string
 	Timestamp string
-	Accuracy  int
-	Lat       float64
-	Long      float64
+	Accuracy  float64
+	Lat       float64 `json:",float64"`
+	Long      float64 `json:",float64"`
 }
 
 type SimulatorDataMessage struct {
@@ -46,7 +47,7 @@ func (s SimulatorDataMessage) toString() string {
 //MapMatcherMessage Data the map matcher is sending after processing
 type MapMatcherMessage struct {
 	MessageID int
-	CarID     int
+	CarID     string
 	Timestamp string
 	Route     []Coordinates
 }
@@ -121,6 +122,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
+		fmt.Println(msg.toString())
 
 		pushToMessageQueue(msg.Data)
 
@@ -133,7 +135,9 @@ func main() {
 }
 
 func processMessage(msg1 SimulatorDataMessageData, msg2 SimulatorDataMessageData) {
-	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + fmt.Sprintf("%f", msg1.Lat) + "," + fmt.Sprintf("%f", msg1.Long) + ";" + fmt.Sprintf("%f", msg2.Lat) + "," + fmt.Sprintf("%f", msg2.Long) + "?radiuses=100.0;100.0")
+	fmt.Printf("sending data to osrm")
+
+	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=" + strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64))
 	if err != nil {
 		fmt.Printf("--- OSRM error!----\n")
 		fmt.Println(err)
