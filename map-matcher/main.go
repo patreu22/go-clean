@@ -21,12 +21,12 @@ var (
 	subscribeQueueName = "MOL-iosl2018.EVENTB.toll-simulator.location.update"
 	publishQueueName   = "GoMicro_MapMatcher"
 	globalNatsConn     *nats.Conn
-	messageQueue       = make(map[string][]SimulatorDataMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
+	messageQueue       = make(map[string][]SimulatorMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
 )
 
-//SimulatorDataMessage Data received by the Simulator
-type SimulatorDataMessageData struct {
+//SimulatorMessage Data received by the Simulator
+type SimulatorMessageData struct {
 	MessageId int
 	CarId     string
 	Timestamp string
@@ -35,16 +35,22 @@ type SimulatorDataMessageData struct {
 	Long      float64 `json:",float64"`
 }
 
-type SimulatorDataMessage struct {
+type SimulatorMessage struct {
 	Event string
-	Data  SimulatorDataMessageData
+	Data  SimulatorMessageData
 }
 
-func (s SimulatorDataMessage) toString() string {
+func (s SimulatorMessage) toString() string {
 	return fmt.Sprintf("%+v\n", s)
 }
 
 //MapMatcherMessage Data the map matcher is sending after processing
+
+type MapMatcherOutput struct {
+	Sender string
+	Topic  string
+	Data   MapMatcherMessage
+}
 type MapMatcherMessage struct {
 	MessageID int
 	CarID     string
@@ -81,7 +87,7 @@ func (r OSRMResponse) toString() string {
 	return fmt.Sprintf("%+v\n", r)
 }
 
-func pushToMessageQueue(ms SimulatorDataMessageData) {
+func pushToMessageQueue(ms SimulatorMessageData) {
 
 	messageQueue[ms.CarId] = append(messageQueue[ms.CarId], ms)
 
@@ -112,7 +118,7 @@ func main() {
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
 		fmt.Printf("Received a message: %s\n", string(m.Data))
-		var msg SimulatorDataMessage
+		var msg SimulatorMessage
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
 		if err != nil {
@@ -134,7 +140,7 @@ func main() {
 	}
 }
 
-func processMessage(msg1 SimulatorDataMessageData, msg2 SimulatorDataMessageData) {
+func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Printf("sending data to osrm")
 
 	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=" + strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64))
@@ -171,17 +177,23 @@ func processMessage(msg1 SimulatorDataMessageData, msg2 SimulatorDataMessageData
 		},
 	}
 
+	mmOutput := MapMatcherOutput{
+		Sender: "GoMicro-MapMatcher",
+		Topic:  "location-matched",
+		Data:   msgData,
+	}
+
 	// fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
-	publishMapMatcherMessage(msgData)
+	publishMapMatcherMessage(mmOutput)
 }
 
-func publishMapMatcherMessage(msg MapMatcherMessage) {
-	msgDataJSON, err := json.Marshal(msg)
+func publishMapMatcherMessage(msg MapMatcherOutput) {
+	mmOutput, err := json.Marshal(msg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	globalNatsConn.Publish(publishQueueName, msgDataJSON)
+	globalNatsConn.Publish(publishQueueName, mmOutput)
 
 	fmt.Printf("--- Publishing process completed ---")
 }
