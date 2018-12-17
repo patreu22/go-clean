@@ -155,7 +155,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	rawJSON := json.RawMessage(body)
 	bytes, err := rawJSON.MarshalJSON()
 	if err != nil {
-		panic(err)
+		fmt.Println("error:", err)
 	}
 	err2 := json.Unmarshal(bytes, &osrmRes)
 	if err2 != nil {
