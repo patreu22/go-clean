@@ -143,7 +143,7 @@ func main() {
 func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Printf("sending data to osrm")
 
-	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=" + strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64))
+	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=100.0;100.0" /*strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64)*/ /* + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64)*/)
 	if err != nil {
 		fmt.Printf("--- OSRM error!----\n")
 		fmt.Println(err)
