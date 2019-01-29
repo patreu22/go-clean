@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/micro/go-micro"
-	"github.com/nats-io/go-nats"
 	"log"
 	"os"
 	"time"
+
+	micro "github.com/micro/go-micro"
+	nats "github.com/nats-io/go-nats"
 )
 
 var (
@@ -15,6 +16,7 @@ var (
 	subscribeQueueName = "GoMicro_MapMatcher"
 	publishQueueName   = "GoMicro_PollutionMatcher"
 	globalNatsConn     *nats.Conn
+	logQeueName        = "logs"
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -25,17 +27,29 @@ type Coordinates struct {
 
 //Segment is a polluted area and defined by a polygon between segment sections
 type Segment struct {
-	SegmentID       int
-	PollutionLevel  int
-	SegmentSections []Coordinates
+	SegmentID       int           `json:"segmentId"`
+	PollutionLevel  int           `json:"pollutionLevel"`
+	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
 //MapMatcherMessage Data the map matcher is sending after processing
 type MapMatcherMessage struct {
-	MessageID int
-	CarID     int
-	Timestamp string
-	Route     []Coordinates
+	MessageID int           `json:"messageId"`
+	CarID     int           `json:"carId"`
+	Timestamp string        `json:"timestamp"`
+	Route     []Coordinates `json:"route"`
+}
+
+type LogMessage struct {
+	Data LogMessageData `json:"data"`
+}
+
+type LogMessageData struct {
+	MessageId int    `json:"messageId"`
+	Sender    string `json:"sender"`
+	Framework string `json:"framework"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -44,10 +58,10 @@ func (m MapMatcherMessage) toString() string {
 
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
-	MessageID int
-	CarID     int
-	Timestamp string
-	Segments  []Segment
+	MessageID int       `json:"messageId"`
+	CarID     int       `json:"carId"`
+	Timestamp string    `json:"timestamp"`
+	Segments  []Segment `json:"segments"`
 }
 
 func (m PollutionMatcherMessage) toString() string {
@@ -82,7 +96,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-
+		logMessage(msg.MessageID, "received")
 		processMessage(msg)
 
 	})
@@ -91,6 +105,26 @@ func main() {
 	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func logMessage(messageID int, msgType string) {
+	msg := LogMessage{
+		Data: LogMessageData{
+			MessageId: messageID,
+			Sender:    "map-matcher",
+			Framework: "gomicro",
+			Type:      msgType,
+			Timestamp: time.Now().Local().Format(time.RFC3339),
+		},
+	}
+
+	logOutput, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	globalNatsConn.Publish(logQeueName, logOutput)
+	fmt.Printf("--- Message logged in queue ---")
 }
 
 func processMessage(msg MapMatcherMessage) {
@@ -126,6 +160,6 @@ func publishMapMatcherMessage(msg PollutionMatcherMessage) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-
+	logMessage(msg.MessageID, "sent")
 	fmt.Printf("--- Publishing process completed ---")
 }

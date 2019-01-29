@@ -3,14 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/micro/go-micro"
-	"github.com/nats-io/go-nats"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	micro "github.com/micro/go-micro"
+	nats "github.com/nats-io/go-nats"
 )
 
 var (
@@ -20,72 +21,82 @@ var (
 	// subscribeQueueName = "GoMicro_SimulatorData"
 	subscribeQueueName = "location.update"
 	publishQueueName   = "GoMicro_MapMatcher"
-	logQeueName = "location.matched"
+	logQeueName        = "logs"
 	globalNatsConn     *nats.Conn
 	messageQueue       = make(map[string][]SimulatorMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
 )
 
-//SimulatorMessage Data received by the Simulator
+//SimulatorMessageData received by the Simulator
 type SimulatorMessageData struct {
-	MessageId int
-	CarId     string
-	Timestamp string
-	Accuracy  float64
+	MessageID int     `json:"messageId"`
+	CarID     string  `json:"carId"`
+	Timestamp string  `json:"timestamp"`
+	Accuracy  float64 `json:"accuracy"`
 	Lat       float64 `json:",float64"`
 	Long      float64 `json:",float64"`
 }
 
+//SimulatorMessage received from the simulator queue
 type SimulatorMessage struct {
-	Event string
-	Data  SimulatorMessageData
+	Event string               `json:"event"`
+	Data  SimulatorMessageData `json:"data"`
 }
 
+//LogMessage to be put into the nats log queue
 type LogMessage struct {
-	Data LogMessageData
+	Data LogMessageData `json:"data"`
 }
 
+//LogMessageData to be put into the LogMessage
 type LogMessageData struct {
-	MessageId int
-	Sender string
-	Framework string
-	Type string
-	Timestamp string
+	MessageID int    `json:"messageId"`
+	Sender    string `json:"sender"`
+	Framework string `json:"framework"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+}
+
+func (l LogMessage) toString() string {
+	return fmt.Sprintf("%+v\n", l)
 }
 
 func (s SimulatorMessage) toString() string {
 	return fmt.Sprintf("%+v\n", s)
 }
 
-//MapMatcherMessage Data the map matcher is sending after processing
-
+// MapMatcherOutput message struct
 type MapMatcherOutput struct {
-	Sender string
-	Topic  string
-	Data   MapMatcherMessage
+	Sender string            `json:"sender"`
+	Topic  string            `json:"topic"`
+	Data   MapMatcherMessage `json:"data"`
 }
+
+// MapMatcherMessage struct
 type MapMatcherMessage struct {
-	MessageID int
-	CarID     string
-	Timestamp string
-	Route     []Coordinates
+	MessageID int           `json:"messageId"`
+	CarID     string        `json:"carId"`
+	Timestamp string        `json:"timestamp"`
+	Route     []Coordinates `json:"route"`
 }
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat  float64
-	Long float64
+	Lat  float64 `json:"lat"`
+	Long float64 `json:"long"`
 }
 
 func (m MapMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+// OSRMResponse from the OSRM server
 type OSRMResponse struct {
 	Code        string
 	Tracepoints []Tracepoints
 }
 
+// Tracepoints <meaningful comment>
 type Tracepoints struct {
 	AternativesCount int
 	Location         []float64
@@ -102,13 +113,13 @@ func (r OSRMResponse) toString() string {
 
 func pushToMessageQueue(ms SimulatorMessageData) {
 
-	messageQueue[ms.CarId] = append(messageQueue[ms.CarId], ms)
+	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
 
-	if len(messageQueue[ms.CarId]) >= messageQueueLength {
-		msg1 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-1]
-		msg2 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-2]
-		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
-		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
+	if len(messageQueue[ms.CarID]) >= messageQueueLength {
+		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
+		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
 		processMessage(msg1, msg2)
 	}
 
@@ -141,7 +152,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-		logMessage(msg.Data.MessageId, true);
+		logMessage(msg.Data.MessageID, "received")
 		fmt.Println(msg.toString())
 		pushToMessageQueue(msg.Data)
 
@@ -153,21 +164,14 @@ func main() {
 	}
 }
 
-func logMessage(messageID int, received bool){
-	messageType := ""
-	if(received){
-		messageType = "received"
-	}else{
-		messageType = "sent"
-	}
-
+func logMessage(messageID int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
-			MessageId: messageID,
-			Sender: "map-matcher",
+			MessageID: messageID,
+			Sender:    "map-matcher",
 			Framework: "gomicro",
-			Type: messageType,
-			Timestamp: time.Now().Local().Format("2019-01-10T10:42:18.189Z"),
+			Type:      msgType,
+			Timestamp: time.Now().Local().Format(time.RFC3339),
 		},
 	}
 
@@ -178,6 +182,7 @@ func logMessage(messageID int, received bool){
 
 	globalNatsConn.Publish(logQeueName, logOutput)
 	fmt.Printf("--- Message logged in queue ---")
+	fmt.Printf(string(logOutput))
 }
 
 func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
@@ -206,9 +211,9 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Println(osrmRes.toString())
 
 	msgData := MapMatcherMessage{
-		MessageID: msg1.MessageId,
-		CarID:     msg1.CarId,
-		Timestamp: time.Now().Local().Format("2019-01-10T10:42:18.189Z"),
+		MessageID: msg1.MessageID,
+		CarID:     msg1.CarID,
+		Timestamp: time.Now().Local().Format(time.RFC3339),
 		Route: []Coordinates{
 			Coordinates{
 				Lat:  osrmRes.Tracepoints[0].Location[0],
@@ -234,7 +239,7 @@ func publishMapMatcherMessage(msg MapMatcherOutput) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, mmOutput)
-	logMessage(msg.Data.MessageID, false);
+	logMessage(msg.Data.MessageID, "sent")
 
 	fmt.Printf("--- Publishing process completed ---")
 }
