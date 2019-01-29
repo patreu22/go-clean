@@ -18,8 +18,9 @@ var (
 	osrmURI = os.Getenv("OSRM_URI")
 	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	// subscribeQueueName = "GoMicro_SimulatorData"
-	subscribeQueueName = "MOL-iosl2018.EVENTB.toll-simulator.location.update"
+	subscribeQueueName = "location.update"
 	publishQueueName   = "GoMicro_MapMatcher"
+	logQeueName = "location.matched"
 	globalNatsConn     *nats.Conn
 	messageQueue       = make(map[string][]SimulatorMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
@@ -38,6 +39,18 @@ type SimulatorMessageData struct {
 type SimulatorMessage struct {
 	Event string
 	Data  SimulatorMessageData
+}
+
+type LogMessage struct {
+	Data LogMessageData
+}
+
+type LogMessageData struct {
+	MessageId int
+	Sender string
+	Framework string
+	Type string
+	Timestamp string
 }
 
 func (s SimulatorMessage) toString() string {
@@ -128,8 +141,8 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
+		logMessage(msg.Data.MessageId, true);
 		fmt.Println(msg.toString())
-
 		pushToMessageQueue(msg.Data)
 
 	})
@@ -138,6 +151,33 @@ func main() {
 	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func logMessage(messageID int, received bool){
+	messageType := ""
+	if(received){
+		messageType = "received"
+	}else{
+		messageType = "sent"
+	}
+
+	msg := LogMessage{
+		Data: LogMessageData{
+			MessageId: messageID,
+			Sender: "map-matcher",
+			Framework: "gomicro",
+			Type: messageType,
+			Timestamp: time.Now().Local().Format("2019-01-10T10:42:18.189Z"),
+		},
+	}
+
+	logOutput, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	globalNatsConn.Publish(logQeueName, logOutput)
+	fmt.Printf("--- Message logged in queue ---")
 }
 
 func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
@@ -168,7 +208,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	msgData := MapMatcherMessage{
 		MessageID: msg1.MessageId,
 		CarID:     msg1.CarId,
-		Timestamp: time.Now().Local().Format("2000-01-02 07:55:31"),
+		Timestamp: time.Now().Local().Format("2019-01-10T10:42:18.189Z"),
 		Route: []Coordinates{
 			Coordinates{
 				Lat:  osrmRes.Tracepoints[0].Location[0],
@@ -194,6 +234,7 @@ func publishMapMatcherMessage(msg MapMatcherOutput) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, mmOutput)
+	logMessage(msg.Data.MessageID, false);
 
 	fmt.Printf("--- Publishing process completed ---")
 }
