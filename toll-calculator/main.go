@@ -3,44 +3,57 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nats-io/go-nats"
 	"log"
 	"os"
 	"time"
 
-	"github.com/micro/go-micro"
+	micro "github.com/micro/go-micro"
+	nats "github.com/nats-io/go-nats"
 )
 
 var (
 	natsURI            = os.Getenv("NATS_URI")
 	subscribeQueueName = "GoMicro_PollutionMatcher"
+	logQeueName        = "logs"
 	// publishQueueName   = "--- UNDEFINED ---"
 	globalNatsConn *nats.Conn
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat float32
-	Lon float32
+	Lat float32 `json:"lat"`
+	Lon float32 `json:"lon"`
 }
 
 //Segment is a polluted area and defined by a polygon between segment sections
 type Segment struct {
-	SegmentID       int
-	PollutionLevel  int
-	SegmentSections []Coordinates
+	SegmentID       int           `json:"segmentId"`
+	PollutionLevel  int           `json:"pollutionLevel"`
+	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
-	MessageID int
-	CarID     int
-	Timestamp string
-	Segments  []Segment
+	MessageID int       `json:"messageId"`
+	CarID     int       `json:"carId"`
+	Timestamp string    `json:"timestamp"`
+	Segments  []Segment `json:"segments"`
 }
 
 func (m PollutionMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
+}
+
+type LogMessage struct {
+	Data LogMessageData `json:"data"`
+}
+
+type LogMessageData struct {
+	MessageId int    `json:"messageId"`
+	Sender    string `json:"sender"`
+	Framework string `json:"framework"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
 }
 
 func main() {
@@ -72,7 +85,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-
+		logMessage(msg.MessageID, "received")
 		processMessage(msg)
 
 	})
@@ -83,12 +96,33 @@ func main() {
 	}
 }
 
+func logMessage(messageID int, msgType string) {
+	msg := LogMessage{
+		Data: LogMessageData{
+			MessageId: messageID,
+			Sender:    "map-matcher",
+			Framework: "gomicro",
+			Type:      msgType,
+			Timestamp: time.Now().Local().Format(time.RFC3339),
+		},
+	}
+
+	logOutput, err := json.Marshal(msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	globalNatsConn.Publish(logQeueName, logOutput)
+	fmt.Printf("--- Message logged in queue ---")
+}
+
 func processMessage(msg PollutionMatcherMessage) {
 	// Calculate the fee based on the given PollutionMatcherMessage
 	fmt.Print(msg.CarID)
 	fmt.Printf("--- The Toll fee for the Car with the ID %v is 5.49 Euro ---\n", msg.CarID)
 	fmt.Println(msg.toString())
 	// publishMapMatcherMessage(msgData)
+	// logMessage(msg.Data.MessageID, "sent");
 }
 
 // func publishMapMatcherMessage(msg PollutionMatcherMessage) {
