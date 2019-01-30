@@ -30,6 +30,9 @@ services:
   #   ports:
   #     - 5000:5000
   #   command: sh -c "osrm-routed --algorithm mld berlin-latest.osrm"
+ 
+  
+ 
   map-matcher:
     build: ./map-matcher
     environment:

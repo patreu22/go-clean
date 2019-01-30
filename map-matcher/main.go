@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/micro/go-micro"
-	"github.com/nats-io/go-nats"
+	// "github.com/micro/go-micro"
+	// "github.com/nats-io/go-nats"
 	"io/ioutil"
 	"log"
 	"net/http"
