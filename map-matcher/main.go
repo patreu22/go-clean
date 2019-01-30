@@ -20,7 +20,7 @@ var (
 	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	// subscribeQueueName = "GoMicro_SimulatorData"
 	subscribeQueueName = "location.update"
-	publishQueueName   = "GoMicro_MapMatcher"
+	publishQueueName   = "location.matched"
 	logQeueName        = "logs"
 	globalNatsConn     *nats.Conn
 	messageQueue       = make(map[string][]SimulatorMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
@@ -33,8 +33,8 @@ type SimulatorMessageData struct {
 	CarID     string  `json:"carId"`
 	Timestamp string  `json:"timestamp"`
 	Accuracy  float64 `json:"accuracy"`
-	Lat       float64 `json:",float64"`
-	Long      float64 `json:",float64"`
+	Lat       float64 `json:"lat,float64"`
+	Lon       float64 `json:"lon,float64"`
 }
 
 //SimulatorMessage received from the simulator queue
@@ -65,6 +65,10 @@ func (s SimulatorMessage) toString() string {
 	return fmt.Sprintf("%+v\n", s)
 }
 
+func (s SimulatorMessageData) toString() string {
+	return fmt.Sprintf("%+v\n", s)
+}
+
 // MapMatcherOutput message struct
 type MapMatcherOutput struct {
 	Sender string            `json:"sender"`
@@ -82,8 +86,8 @@ type MapMatcherMessage struct {
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat  float64 `json:"lat"`
-	Long float64 `json:"long"`
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -187,8 +191,12 @@ func logMessage(messageID int, msgType string) {
 
 func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Printf("sending data to osrm")
-
-	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Long, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=100.0;100.0" /*strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64)*/ /* + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64)*/)
+	fmt.Printf("----MESSAGE1----")
+	fmt.Printf(msg1.toString())
+	fmt.Printf("----MESSAGE2----")
+	fmt.Printf(msg2.toString())
+	fmt.Printf("LOL")
+	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=100.0;100.0" /*strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64)*/ /* + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64)*/)
 	if err != nil {
 		fmt.Printf("--- OSRM error!----\n")
 		fmt.Println(err)
@@ -216,8 +224,8 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 		Timestamp: time.Now().Local().Format(time.RFC3339),
 		Route: []Coordinates{
 			Coordinates{
-				Lat:  osrmRes.Tracepoints[0].Location[0],
-				Long: osrmRes.Tracepoints[0].Location[1],
+				Lat: osrmRes.Tracepoints[0].Location[0],
+				Lon: osrmRes.Tracepoints[0].Location[1],
 			},
 		},
 	}

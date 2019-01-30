@@ -13,16 +13,16 @@ import (
 
 var (
 	natsURI            = os.Getenv("NATS_URI")
-	subscribeQueueName = "GoMicro_MapMatcher"
-	publishQueueName   = "GoMicro_PollutionMatcher"
+	subscribeQueueName = "location.matched"
+	publishQueueName   = "pollution.matched"
 	globalNatsConn     *nats.Conn
 	logQeueName        = "logs"
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat float32
-	Lon float32
+	Lat float32 `json:"lat"`
+	Lon float32 `json:"lon"`
 }
 
 //Segment is a polluted area and defined by a polygon between segment sections
@@ -40,12 +40,14 @@ type MapMatcherMessage struct {
 	Route     []Coordinates `json:"route"`
 }
 
+//LogMessage to be put into the log queue
 type LogMessage struct {
 	Data LogMessageData `json:"data"`
 }
 
+//LogMessageData which is part of the LogMessage
 type LogMessageData struct {
-	MessageId int    `json:"messageId"`
+	MessageID int    `json:"messageId"`
 	Sender    string `json:"sender"`
 	Framework string `json:"framework"`
 	Type      string `json:"type"`
@@ -110,7 +112,7 @@ func main() {
 func logMessage(messageID int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
-			MessageId: messageID,
+			MessageID: messageID,
 			Sender:    "map-matcher",
 			Framework: "gomicro",
 			Type:      msgType,

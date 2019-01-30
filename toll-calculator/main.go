@@ -13,7 +13,7 @@ import (
 
 var (
 	natsURI            = os.Getenv("NATS_URI")
-	subscribeQueueName = "GoMicro_PollutionMatcher"
+	subscribeQueueName = "pollution.matched"
 	logQeueName        = "logs"
 	// publishQueueName   = "--- UNDEFINED ---"
 	globalNatsConn *nats.Conn
