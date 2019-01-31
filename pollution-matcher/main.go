@@ -16,7 +16,7 @@ var (
 	subscribeQueueName = "location.matched"
 	publishQueueName   = "pollution.matched"
 	globalNatsConn     *nats.Conn
-	logQeueName        = "logs"
+	logQueueName       = "logs"
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -32,8 +32,15 @@ type Segment struct {
 	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
-//MapMatcherMessage Data the map matcher is sending after processing
+//MapMatcherMessage the message the mapmatcher processes via NATs
 type MapMatcherMessage struct {
+	Sender string                `json:"sender"`
+	Topic  string                `json:"topic"`
+	Data   MapMatcherMessageData `json:"data"`
+}
+
+//MapMatcherMessageData the map matcher data
+type MapMatcherMessageData struct {
 	MessageID int           `json:"messageId"`
 	CarID     int           `json:"carId"`
 	Timestamp string        `json:"timestamp"`
@@ -55,6 +62,10 @@ type LogMessageData struct {
 }
 
 func (m MapMatcherMessage) toString() string {
+	return fmt.Sprintf("%+v\n", m)
+}
+
+func (m MapMatcherMessageData) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
@@ -98,8 +109,11 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-		logMessage(msg.MessageID, "received")
-		processMessage(msg)
+		fmt.Println("Marshalled message")
+		fmt.Println("\n\n\n")
+		fmt.Println(msg.Data.toString() + "\n\n\n")
+		logMessage(msg.Data.MessageID, "received")
+		processMessage(msg.Data)
 
 	})
 
@@ -113,7 +127,7 @@ func logMessage(messageID int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
 			MessageID: messageID,
-			Sender:    "map-matcher",
+			Sender:    "pollution-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
 			Timestamp: time.Now().Local().Format(time.RFC3339),
@@ -125,11 +139,15 @@ func logMessage(messageID int, msgType string) {
 		log.Fatal(err)
 	}
 
-	globalNatsConn.Publish(logQeueName, logOutput)
-	fmt.Printf("--- Message logged in queue ---")
+	globalNatsConn.Publish(logQueueName, logOutput)
+	fmt.Printf("--- Message logged in queue %s ---:\n\n", logQueueName)
+	fmt.Println("\n\n")
+	fmt.Println(string(logOutput))
+	fmt.Println("\n\n")
+	fmt.Println("--- Message logged in queue ---")
 }
 
-func processMessage(msg MapMatcherMessage) {
+func processMessage(msg MapMatcherMessageData) {
 	//Get the Segments from some API/Service/Whereever
 	msgData := PollutionMatcherMessage{
 		MessageID: msg.MessageID,
@@ -152,16 +170,19 @@ func processMessage(msg MapMatcherMessage) {
 		},
 	}
 	fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
-	publishMapMatcherMessage(msgData)
+	publishPollutionMatcherMessage(msgData)
 }
 
-func publishMapMatcherMessage(msg PollutionMatcherMessage) {
+func publishPollutionMatcherMessage(msg PollutionMatcherMessage) {
 	msgDataJSON, err := json.Marshal(msg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
+	fmt.Println("Freeze...")
+	time.Sleep(2 * time.Second)
+	fmt.Println("Continue...")
 	logMessage(msg.MessageID, "sent")
 	fmt.Printf("--- Publishing process completed ---")
 }

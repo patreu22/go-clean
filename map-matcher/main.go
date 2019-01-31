@@ -20,8 +20,9 @@ var (
 	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
 	// subscribeQueueName = "GoMicro_SimulatorData"
 	subscribeQueueName = "location.update"
+	// publishQueueName   = "LOL"
 	publishQueueName   = "location.matched"
-	logQeueName        = "logs"
+	logQueueName       = "logs"
 	globalNatsConn     *nats.Conn
 	messageQueue       = make(map[string][]SimulatorMessageData) // car id to locations dict; example id:locations:[.., .., .., ]
 	messageQueueLength = 2
@@ -184,8 +185,8 @@ func logMessage(messageID int, msgType string) {
 		log.Fatal(err)
 	}
 
-	globalNatsConn.Publish(logQeueName, logOutput)
-	fmt.Printf("--- Message logged in queue ---")
+	globalNatsConn.Publish(logQueueName, logOutput)
+	fmt.Printf("--- Message logged in queue %s ---", logQueueName)
 	fmt.Printf(string(logOutput))
 }
 

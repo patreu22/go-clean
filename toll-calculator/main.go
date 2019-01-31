@@ -14,9 +14,9 @@ import (
 var (
 	natsURI            = os.Getenv("NATS_URI")
 	subscribeQueueName = "pollution.matched"
-	logQeueName        = "logs"
-	// publishQueueName   = "--- UNDEFINED ---"
-	globalNatsConn *nats.Conn
+	logQueueName       = "logs"
+	publishQueueName   = "toll.calculated"
+	globalNatsConn     *nats.Conn
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -44,10 +44,12 @@ func (m PollutionMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+//LogMessage to be put into the log queue
 type LogMessage struct {
 	Data LogMessageData `json:"data"`
 }
 
+//LogMessageData which is part of the LogMessage
 type LogMessageData struct {
 	MessageId int    `json:"messageId"`
 	Sender    string `json:"sender"`
@@ -100,7 +102,7 @@ func logMessage(messageID int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
 			MessageId: messageID,
-			Sender:    "map-matcher",
+			Sender:    "toll-calculator",
 			Framework: "gomicro",
 			Type:      msgType,
 			Timestamp: time.Now().Local().Format(time.RFC3339),
@@ -112,8 +114,12 @@ func logMessage(messageID int, msgType string) {
 		log.Fatal(err)
 	}
 
-	globalNatsConn.Publish(logQeueName, logOutput)
-	fmt.Printf("--- Message logged in queue ---")
+	globalNatsConn.Publish(logQueueName, logOutput)
+	fmt.Printf("--- Message logged in queue %s ---:\n\n", logQueueName)
+	fmt.Println("\n\n")
+	fmt.Println(string(logOutput))
+	fmt.Println("\n\n")
+	fmt.Println("--- Message logged in queue ---")
 }
 
 func processMessage(msg PollutionMatcherMessage) {
@@ -122,7 +128,8 @@ func processMessage(msg PollutionMatcherMessage) {
 	fmt.Printf("--- The Toll fee for the Car with the ID %v is 5.49 Euro ---\n", msg.CarID)
 	fmt.Println(msg.toString())
 	// publishMapMatcherMessage(msgData)
-	// logMessage(msg.Data.MessageID, "sent");
+	time.Sleep(2000 * time.Millisecond)
+	logMessage(msg.MessageID, "sent")
 }
 
 // func publishMapMatcherMessage(msg PollutionMatcherMessage) {
