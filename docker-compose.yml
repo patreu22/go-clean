@@ -67,3 +67,15 @@ services:
     links:
       - consul
       - nats
+
+  postgis:
+    image: kartoza/postgis
+    environment:
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+    ports:
+      - 25432:5432
+  populator:
+    build: ../Polygon-db/
+    depends_on:
+      - postgis
