@@ -228,10 +228,6 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 				Lat: osrmRes.Tracepoints[0].Location[0],
 				Lon: osrmRes.Tracepoints[0].Location[1],
 			},
-			// Coordinates{
-			// 	Lat: osrmRes.Tracepoints[1].Location[0],
-			// 	Lon: osrmRes.Tracepoints[1].Location[1],
-			// },
 		},
 	}
 
