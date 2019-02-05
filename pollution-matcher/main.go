@@ -1,8 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"log"
 	"os"
 	"time"
@@ -17,6 +19,13 @@ var (
 	publishQueueName   = "pollution.matched"
 	globalNatsConn     *nats.Conn
 	logQueueName       = "logs"
+	globalDbConn       *sql.DB
+)
+
+const (
+	DB_USER     = "docker"
+	DB_PASSWORD = "docker"
+	DB_NAME     = "gis"
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -82,6 +91,11 @@ func (m PollutionMatcherMessage) toString() string {
 }
 
 func main() {
+
+	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
+		DB_USER, DB_PASSWORD, DB_NAME)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err)
 
 	service := micro.NewService(
 		micro.Name("go.micro.pollutionmatcher"),
@@ -149,6 +163,7 @@ func logMessage(messageID int, msgType string) {
 
 func processMessage(msg MapMatcherMessageData) {
 	//Get the Segments from some API/Service/Whereever
+
 	msgData := PollutionMatcherMessage{
 		MessageID: msg.MessageID,
 		CarID:     msg.CarID,
@@ -185,4 +200,10 @@ func publishPollutionMatcherMessage(msg PollutionMatcherMessage) {
 	fmt.Println("Continue...")
 	logMessage(msg.MessageID, "sent")
 	fmt.Printf("--- Publishing process completed ---")
+}
+
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
