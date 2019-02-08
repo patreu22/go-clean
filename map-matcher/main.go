@@ -38,15 +38,27 @@ type SimulatorMessageData struct {
 	Lon       float64 `json:"lon,float64"`
 }
 
+func (s SimulatorMessageData) toString() string {
+	return fmt.Sprintf("%+v\n", s)
+}
+
 //SimulatorMessage received from the simulator queue
 type SimulatorMessage struct {
 	Event string               `json:"event"`
 	Data  SimulatorMessageData `json:"data"`
 }
 
+func (s SimulatorMessage) toString() string {
+	return fmt.Sprintf("%+v\n", s)
+}
+
 //LogMessage to be put into the nats log queue
 type LogMessage struct {
 	Data LogMessageData `json:"data"`
+}
+
+func (l LogMessage) toString() string {
+	return fmt.Sprintf("%+v\n", l)
 }
 
 //LogMessageData to be put into the LogMessage
@@ -58,23 +70,15 @@ type LogMessageData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func (l LogMessage) toString() string {
-	return fmt.Sprintf("%+v\n", l)
-}
-
-func (s SimulatorMessage) toString() string {
-	return fmt.Sprintf("%+v\n", s)
-}
-
-func (s SimulatorMessageData) toString() string {
-	return fmt.Sprintf("%+v\n", s)
-}
-
 // MapMatcherOutput message struct
 type MapMatcherOutput struct {
 	Sender string            `json:"sender"`
 	Topic  string            `json:"topic"`
 	Data   MapMatcherMessage `json:"data"`
+}
+
+func (m MapMatcherOutput) toString() string {
+	return fmt.Sprintf("%+v\n", m)
 }
 
 // MapMatcherMessage struct
@@ -85,14 +89,14 @@ type MapMatcherMessage struct {
 	Route     []Coordinates `json:"route"`
 }
 
+func (m MapMatcherMessage) toString() string {
+	return fmt.Sprintf("%+v\n", m)
+}
+
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
-}
-
-func (m MapMatcherMessage) toString() string {
-	return fmt.Sprintf("%+v\n", m)
 }
 
 // OSRMResponse from the OSRM server
@@ -146,7 +150,7 @@ func main() {
 	globalNatsConn = nc
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
-		fmt.Printf("Received a message: %s\n", string(m.Data))
+		fmt.Println("---Received a message:---\n", string(m.Data))
 		var msg SimulatorMessage
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
@@ -186,17 +190,16 @@ func logMessage(messageID int, msgType string) {
 	}
 
 	globalNatsConn.Publish(logQueueName, logOutput)
-	fmt.Printf("--- Message logged in queue %s ---", logQueueName)
-	fmt.Printf(string(logOutput))
+	fmt.Printf("--- Message logged in queue %s ---\n", logQueueName)
+	fmt.Println(string(logOutput))
 }
 
 func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
-	fmt.Printf("sending data to osrm")
-	fmt.Printf("----MESSAGE1----")
-	fmt.Printf(msg1.toString())
-	fmt.Printf("----MESSAGE2----")
-	fmt.Printf(msg2.toString())
-	fmt.Printf("LOL")
+	fmt.Println("----MESSAGE1----")
+	fmt.Println(msg1.toString())
+	fmt.Println("----MESSAGE2----")
+	fmt.Println(msg2.toString())
+	fmt.Println("---sending data to osrm---")
 	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=100.0;100.0" /*strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64)*/ /* + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64)*/)
 	if err != nil {
 		fmt.Printf("--- OSRM error!----\n")
@@ -209,11 +212,11 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	rawJSON := json.RawMessage(body)
 	bytes, err := rawJSON.MarshalJSON()
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("---error:---\n", err)
 	}
 	err2 := json.Unmarshal(bytes, &osrmRes)
 	if err2 != nil {
-		fmt.Println("error:", err)
+		fmt.Println("---error:---\n", err)
 	}
 
 	fmt.Printf("--- OSRM output----\n")
@@ -228,10 +231,10 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 				Lat: osrmRes.Tracepoints[0].Location[0],
 				Lon: osrmRes.Tracepoints[0].Location[1],
 			},
-			// Coordinates{
-			// 	Lat: osrmRes.Tracepoints[1].Location[0],
-			// 	Lon: osrmRes.Tracepoints[1].Location[1],
-			// },
+			Coordinates{
+				Lat: osrmRes.Tracepoints[1].Location[0],
+				Lon: osrmRes.Tracepoints[1].Location[1],
+			},
 		},
 	}
 
@@ -241,7 +244,6 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 		Data:   msgData,
 	}
 
-	// fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
 	publishMapMatcherMessage(mmOutput)
 }
 
@@ -253,6 +255,6 @@ func publishMapMatcherMessage(msg MapMatcherOutput) {
 
 	globalNatsConn.Publish(publishQueueName, mmOutput)
 	logMessage(msg.Data.MessageID, "sent")
-
-	fmt.Printf("--- Publishing process completed ---")
+	fmt.Println("---published message---\n" + msg.toString())
+	fmt.Println("--- Publishing process completed --- \n")
 }

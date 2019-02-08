@@ -4,9 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 	"log"
+	"math/rand"
 	"os"
+	"regexp"
+	"strconv"
 	"time"
 
 	micro "github.com/micro/go-micro"
@@ -15,6 +18,7 @@ import (
 
 var (
 	natsURI            = os.Getenv("NATS_URI")
+	connStr            = os.Getenv("PG_URI")
 	subscribeQueueName = "location.matched"
 	publishQueueName   = "pollution.matched"
 	globalNatsConn     *nats.Conn
@@ -22,16 +26,10 @@ var (
 	globalDbConn       *sql.DB
 )
 
-const (
-	DB_USER     = "docker"
-	DB_PASSWORD = "docker"
-	DB_NAME     = "gis"
-)
-
 //Coordinates Struct to unite a Latitude and Longitude to one location
 type Coordinates struct {
-	Lat float32 `json:"lat"`
-	Lon float32 `json:"lon"`
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 //Segment is a polluted area and defined by a polygon between segment sections
@@ -48,12 +46,20 @@ type MapMatcherMessage struct {
 	Data   MapMatcherMessageData `json:"data"`
 }
 
+func (m MapMatcherMessage) toString() string {
+	return fmt.Sprintf("%+v\n", m)
+}
+
 //MapMatcherMessageData the map matcher data
 type MapMatcherMessageData struct {
 	MessageID int           `json:"messageId"`
 	CarID     int           `json:"carId"`
 	Timestamp string        `json:"timestamp"`
 	Route     []Coordinates `json:"route"`
+}
+
+func (m MapMatcherMessageData) toString() string {
+	return fmt.Sprintf("%+v\n", m)
 }
 
 //LogMessage to be put into the log queue
@@ -70,14 +76,6 @@ type LogMessageData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func (m MapMatcherMessage) toString() string {
-	return fmt.Sprintf("%+v\n", m)
-}
-
-func (m MapMatcherMessageData) toString() string {
-	return fmt.Sprintf("%+v\n", m)
-}
-
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
 	MessageID int       `json:"messageId"`
@@ -90,15 +88,27 @@ func (m PollutionMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+type PollutionMatcherOutput struct {
+	Sender string                  `json:"sender"`
+	Topic  string                  `json:"topic"`
+	Data   PollutionMatcherMessage `json:"data"`
+}
+
+func (m PollutionMatcherOutput) toString() string {
+	return fmt.Sprintf("%+v\n", m)
+}
+
+//GEOJSON Data from postgis
+
+type PGData struct {
+	pollution   int
+	coordinates []string
+}
+
 func main() {
 
-	dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
-		DB_USER, DB_PASSWORD, DB_NAME)
-	db, err := sql.Open("postgres", dbinfo)
-	checkErr(err)
-
 	service := micro.NewService(
-		micro.Name("go.micro.pollutionmatcher"),
+		micro.Name("go-micro-pollutionmatcher"),
 		micro.RegisterTTL(time.Second*30),
 		micro.RegisterInterval(time.Second*10),
 	)
@@ -111,8 +121,14 @@ func main() {
 	}
 	globalNatsConn = nc
 
+	time.Sleep(20 * time.Second)
+
+	db, err := sql.Open("postgres", connStr)
+	checkErr(err)
+	globalDbConn = db
+
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
-		fmt.Printf("Received a message: %s\n", string(m.Data))
+		fmt.Printf("---Received a message:---\n%s\n", string(m.Data))
 		var msg MapMatcherMessage
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
@@ -121,11 +137,10 @@ func main() {
 		}
 		err2 := json.Unmarshal(bytes, &msg)
 		if err2 != nil {
-			fmt.Println("error:", err)
+			fmt.Println("---error:---\n", err)
 		}
-		fmt.Println("Marshalled message")
-		fmt.Println("\n\n\n")
-		fmt.Println(msg.Data.toString() + "\n\n\n")
+		fmt.Println("---Marshalled message---")
+		fmt.Println(msg.Data.toString())
 		logMessage(msg.Data.MessageID, "received")
 		processMessage(msg.Data)
 
@@ -154,56 +169,98 @@ func logMessage(messageID int, msgType string) {
 	}
 
 	globalNatsConn.Publish(logQueueName, logOutput)
-	fmt.Printf("--- Message logged in queue %s ---:\n\n", logQueueName)
-	fmt.Println("\n\n")
+	fmt.Printf("--- Message logged in queue %s ---:\n", logQueueName)
 	fmt.Println(string(logOutput))
-	fmt.Println("\n\n")
-	fmt.Println("--- Message logged in queue ---")
+	fmt.Println("\n")
 }
 
 func processMessage(msg MapMatcherMessageData) {
 	//Get the Segments from some API/Service/Whereever
 
+	rows, err := globalDbConn.Query("select  ST_AsGeoJson(ST_intersection (a.outline, ST_GeomFromText('LINESTRING(" + strconv.FormatFloat(msg.Route[0].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[0].Lat, 'f', -1, 64) + ", " + strconv.FormatFloat(msg.Route[1].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[1].Lat, 'f', -1, 64) + ")', 4326))) as geometry, a.pollution FROM berlin_polygons a WHERE not ST_IsEmpty(ST_AsText(ST_intersection (a.outline, ST_GeomFromText('LINESTRING(" + strconv.FormatFloat(msg.Route[0].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[0].Lat, 'f', -1, 64) + ", " + strconv.FormatFloat(msg.Route[1].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[1].Lat, 'f', -1, 64) + ")',4326))));")
+	if err != nil {
+		fmt.Println("----db query error----")
+		fmt.Println(err)
+	}
+
+	var pgDataPoints []PGData
+
+	for rows.Next() { //evaluate|extract db result
+		var pol int
+		var str string
+		err = rows.Scan(&str, &pol)
+		if err != nil {
+			fmt.Println("---row scan error---")
+			fmt.Println(err)
+		}
+
+		re := regexp.MustCompile("[0-9]+.[0-9]+")
+		res := re.FindAllString(str, -1)
+
+		pgData := PGData{
+			pollution:   pol,
+			coordinates: res,
+		}
+
+		pgDataPoints = append(pgDataPoints, pgData)
+	}
+	var segments []Segment
+	for _, point := range pgDataPoints {
+		latOne, err := strconv.ParseFloat(point.coordinates[0], 64)
+		lonOne, err2 := strconv.ParseFloat(point.coordinates[1], 64)
+		latTwo, err3 := strconv.ParseFloat(point.coordinates[2], 64)
+		lonTwo, err4 := strconv.ParseFloat(point.coordinates[3], 64)
+
+		if err != nil || err2 != nil || err3 != nil || err4 != nil {
+			fmt.Println("---float parsing error in segment generation---")
+		}
+		segment := Segment{
+			SegmentID:      rand.Intn(10000000000),
+			PollutionLevel: point.pollution,
+			SegmentSections: []Coordinates{
+				Coordinates{
+					Lat: latOne,
+					Lon: lonOne,
+				},
+				Coordinates{
+					Lat: latTwo,
+					Lon: lonTwo,
+				},
+			},
+		}
+		segments = append(segments, segment)
+	}
+
 	msgData := PollutionMatcherMessage{
 		MessageID: msg.MessageID,
 		CarID:     msg.CarID,
-		Timestamp: msg.Timestamp,
-		Segments: []Segment{
-			Segment{
-				SegmentID: 0,
-				SegmentSections: []Coordinates{
-					Coordinates{
-						Lat: 2.35,
-						Lon: 3.45,
-					},
-					Coordinates{
-						Lat: 3.56,
-						Lon: 3.89,
-					},
-				},
-			},
-		},
+		Timestamp: time.Now().Local().Format(time.RFC3339),
+		Segments:  segments,
 	}
-	fmt.Printf("--- Output of Processing ---\n" + msgData.toString())
 	publishPollutionMatcherMessage(msgData)
 }
 
 func publishPollutionMatcherMessage(msg PollutionMatcherMessage) {
-	msgDataJSON, err := json.Marshal(msg)
+
+	outputMsg := PollutionMatcherOutput{
+		Topic:  "pollution-matched",
+		Sender: "GoMicro-PollutionMatcher",
+		Data:   msg,
+	}
+
+	msgDataJSON, err := json.Marshal(outputMsg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-	fmt.Println("Freeze...")
-	time.Sleep(2 * time.Second)
-	fmt.Println("Continue...")
-	logMessage(msg.MessageID, "sent")
-	fmt.Printf("--- Publishing process completed ---")
+	logMessage(msg.MessageID, " message sent")
+	fmt.Println("---published message---\n" + msg.toString())
+	fmt.Println("--- Publishing process completed ---")
 }
 
 func checkErr(err error) {
 	if err != nil {
-		panic(err)
+		fmt.Print(err)
 	}
 }
