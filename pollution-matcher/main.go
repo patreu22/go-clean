@@ -34,7 +34,7 @@ type Coordinates struct {
 
 //Segment is a polluted area and defined by a polygon between segment sections
 type Segment struct {
-	SegmentID       int           `json:"segmentId"`
+	SegmentId       int           `json:"segmentId"`
 	PollutionLevel  int           `json:"pollutionLevel"`
 	SegmentSections []Coordinates `json:"segmentSections"`
 }
@@ -52,8 +52,8 @@ func (m MapMatcherMessage) toString() string {
 
 //MapMatcherMessageData the map matcher data
 type MapMatcherMessageData struct {
-	MessageID int           `json:"messageId"`
-	CarID     int           `json:"carId"`
+	MessageId int           `json:"MessageId"`
+	CarId     int           `json:"CarId"`
 	Timestamp string        `json:"timestamp"`
 	Route     []Coordinates `json:"route"`
 }
@@ -69,7 +69,7 @@ type LogMessage struct {
 
 //LogMessageData which is part of the LogMessage
 type LogMessageData struct {
-	MessageID int    `json:"messageId"`
+	MessageId int    `json:"MessageId"`
 	Sender    string `json:"sender"`
 	Framework string `json:"framework"`
 	Type      string `json:"type"`
@@ -78,8 +78,8 @@ type LogMessageData struct {
 
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
-	MessageID int       `json:"messageId"`
-	CarID     int       `json:"carId"`
+	MessageId int       `json:"MessageId"`
+	CarId     int       `json:"CarId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
 	Sender    string    `json:"sender"`
@@ -91,8 +91,6 @@ func (m PollutionMatcherMessage) toString() string {
 }
 
 type PollutionMatcherOutput struct {
-	// Sender string                  `json:"sender"`
-	// Topic  string                  `json:"topic"`
 	Data PollutionMatcherMessage `json:"data"`
 }
 
@@ -143,7 +141,7 @@ func main() {
 		}
 		fmt.Println("---Marshalled message---")
 		fmt.Println(msg.Data.toString())
-		logMessage(msg.Data.MessageID, "received")
+		logMessage(msg.Data.MessageId, "received")
 		processMessage(msg.Data)
 
 	})
@@ -154,10 +152,10 @@ func main() {
 	}
 }
 
-func logMessage(messageID int, msgType string) {
+func logMessage(MessageId int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
-			MessageID: messageID,
+			MessageId: MessageId,
 			Sender:    "pollution-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
@@ -218,7 +216,7 @@ func processMessage(msg MapMatcherMessageData) {
 		}
 		segment := Segment{
 
-			SegmentID:      rand.Intn(10000000000),
+			SegmentId:      rand.Intn(10000000000),
 			PollutionLevel: point.pollution,
 			SegmentSections: []Coordinates{
 				Coordinates{
@@ -237,8 +235,8 @@ func processMessage(msg MapMatcherMessageData) {
 	msgData := PollutionMatcherMessage{
 		Topic:     "pollution.matched",
 		Sender:    "GoMicro-PollutionMatcher",
-		MessageID: msg.MessageID,
-		CarID:     msg.CarID,
+		MessageId: msg.MessageId,
+		CarId:     msg.CarId,
 		Timestamp: time.Now().Local().Format(time.RFC3339),
 		Segments:  segments,
 	}
@@ -257,7 +255,7 @@ func publishPollutionMatcherMessage(msg PollutionMatcherMessage) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-	logMessage(msg.MessageID, " message sent")
+	logMessage(msg.MessageId, "sent")
 	fmt.Println("---published message---\n" + msg.toString())
 	fmt.Println("--- Publishing process completed ---")
 }

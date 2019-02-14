@@ -30,8 +30,8 @@ var (
 
 //SimulatorMessageData received by the Simulator
 type SimulatorMessageData struct {
-	MessageID int     `json:"messageId"`
-	CarID     string  `json:"carId"`
+	MessageId int     `json:"MessageId"`
+	CarId     string  `json:"carId"`
 	Timestamp string  `json:"timestamp"`
 	Accuracy  float64 `json:"accuracy"`
 	Lat       float64 `json:"lat,float64"`
@@ -54,7 +54,7 @@ func (s SimulatorMessage) toString() string {
 
 //LogMessage to be put into the nats log queue
 type LogMessage struct {
-	Data LogMessageData `json:"data"`
+	data LogMessageData `json:"data"`
 }
 
 func (l LogMessage) toString() string {
@@ -63,7 +63,7 @@ func (l LogMessage) toString() string {
 
 //LogMessageData to be put into the LogMessage
 type LogMessageData struct {
-	MessageID int    `json:"messageId"`
+	MessageId int    `json:"messageId"`
 	Sender    string `json:"sender"`
 	Framework string `json:"framework"`
 	Type      string `json:"type"`
@@ -72,7 +72,7 @@ type LogMessageData struct {
 
 // MapMatcherOutput message struct
 type MapMatcherOutput struct {
-	Data MapMatcherMessage `json:"data"`
+	data MapMatcherMessage `json:"data"`
 }
 
 func (m MapMatcherOutput) toString() string {
@@ -81,12 +81,12 @@ func (m MapMatcherOutput) toString() string {
 
 // MapMatcherMessage struct
 type MapMatcherMessage struct {
-	MessageID int           `json:"messageId"`
-	CarID     string        `json:"carId"`
-	Timestamp string        `json:"timestamp"`
-	Route     []Coordinates `json:"route"`
-	Sender    string        `json:"sender"`
-	Topic     string        `json:"topic"`
+	MessageId int           `json:"MessageId"`
+	carID     string        `json:"carId"`
+	timestamp string        `json:"timestamp"`
+	route     []Coordinates `json:"route"`
+	sender    string        `json:"sender"`
+	topic     string        `json:"topic"`
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -122,13 +122,13 @@ func (r OSRMResponse) toString() string {
 
 func pushToMessageQueue(ms SimulatorMessageData) {
 
-	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
+	messageQueue[ms.CarId] = append(messageQueue[ms.CarId], ms)
 
-	if len(messageQueue[ms.CarID]) >= messageQueueLength {
-		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
-		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
-		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
-		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
+	if len(messageQueue[ms.CarId]) >= messageQueueLength {
+		msg1 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-1]
+		msg2 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-2]
+		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
+		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
 		processMessage(msg1, msg2)
 	}
 
@@ -161,7 +161,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-		logMessage(msg.Data.MessageID, "received")
+		logMessage(msg.Data.MessageId, "received")
 		fmt.Println(msg.toString())
 		pushToMessageQueue(msg.Data)
 
@@ -173,10 +173,10 @@ func main() {
 	}
 }
 
-func logMessage(messageID int, msgType string) {
+func logMessage(MessageId int, msgType string) {
 	msg := LogMessage{
-		Data: LogMessageData{
-			MessageID: messageID,
+		data: LogMessageData{
+			MessageId: MessageId,
 			Sender:    "map-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
@@ -223,12 +223,12 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Println(osrmRes.toString())
 
 	msgData := MapMatcherMessage{
-		Sender:    "GoMicro-MapMatcher",
-		Topic:     "location.matched",
-		MessageID: msg1.MessageID,
-		CarID:     msg1.CarID,
-		Timestamp: time.Now().Local().Format(time.RFC3339),
-		Route: []Coordinates{
+		sender:    "GoMicro-MapMatcher",
+		topic:     "location.matched",
+		MessageId: msg1.MessageId,
+		carID:     msg1.CarId,
+		timestamp: time.Now().Local().Format(time.RFC3339),
+		route: []Coordinates{
 			Coordinates{
 				Lat: osrmRes.Tracepoints[0].Location[1],
 				Lon: osrmRes.Tracepoints[0].Location[0],
@@ -241,7 +241,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	}
 
 	mmOutput := MapMatcherOutput{
-		Data: msgData,
+		data: msgData,
 	}
 
 	publishMapMatcherMessage(mmOutput)
@@ -254,7 +254,7 @@ func publishMapMatcherMessage(msg MapMatcherOutput) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, mmOutput)
-	logMessage(msg.Data.MessageID, "sent")
+	logMessage(msg.data.MessageId, "sent")
 	fmt.Println("---published message---\n" + msg.toString())
 	fmt.Println("--- Publishing process completed --- \n")
 }

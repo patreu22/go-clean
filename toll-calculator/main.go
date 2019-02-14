@@ -40,15 +40,15 @@ type Coordinates struct {
 
 //Segment is a polluted area and defined by a polygon between segment sections
 type Segment struct {
-	SegmentID       int           `json:"segmentId"`
+	SegmentId       int           `json:"segmentId"`
 	PollutionLevel  int           `json:"pollutionLevel"`
 	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
-	MessageId int       `json:"MessageId"`
-	CarId     int       `json:"CarId"`
+	MessageId int       `json:"messageId"`
+	CarId     int       `json:"carId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
 }
@@ -72,12 +72,12 @@ type LogMessageData struct {
 }
 
 type TollcalculatorMessage struct {
-	MessageId int
-	CarId     int
-	Timestamp string
-	Toll      float64
-	Sender    string `json:"sender"`
-	Topic     string `json:"topic"`
+	MessageId int     `json:MessageId`
+	CarId     int     `json:CarId`
+	Timestamp string  `json:timestamp`
+	Toll      float64 `json:toll`
+	Sender    string  `json:"sender"`
+	Topic     string  `json:"topic"`
 }
 
 func (m TollcalculatorMessage) toString() string {
@@ -194,7 +194,7 @@ func publishTollCalculatorMessage(msg TollcalculatorMessage) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-	logMessage(msg.MessageId, " message sent")
+	logMessage(msg.MessageId, "sent")
 	fmt.Println("---published message---\n" + msg.toString())
 	fmt.Println("--- Publishing process completed ---")
 }
