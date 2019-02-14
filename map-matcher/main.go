@@ -72,9 +72,7 @@ type LogMessageData struct {
 
 // MapMatcherOutput message struct
 type MapMatcherOutput struct {
-	Sender string            `json:"sender"`
-	Topic  string            `json:"topic"`
-	Data   MapMatcherMessage `json:"data"`
+	Data MapMatcherMessage `json:"data"`
 }
 
 func (m MapMatcherOutput) toString() string {
@@ -87,6 +85,8 @@ type MapMatcherMessage struct {
 	CarID     string        `json:"carId"`
 	Timestamp string        `json:"timestamp"`
 	Route     []Coordinates `json:"route"`
+	Sender    string        `json:"sender"`
+	Topic     string        `json:"topic"`
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -223,6 +223,8 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Println(osrmRes.toString())
 
 	msgData := MapMatcherMessage{
+		Sender:    "GoMicro-MapMatcher",
+		Topic:     "location.matched",
 		MessageID: msg1.MessageID,
 		CarID:     msg1.CarID,
 		Timestamp: time.Now().Local().Format(time.RFC3339),
@@ -239,9 +241,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	}
 
 	mmOutput := MapMatcherOutput{
-		Sender: "GoMicro-MapMatcher",
-		Topic:  "location-matched",
-		Data:   msgData,
+		Data: msgData,
 	}
 
 	publishMapMatcherMessage(mmOutput)

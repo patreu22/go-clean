@@ -76,6 +76,8 @@ type TollcalculatorMessage struct {
 	CarId     int
 	Timestamp string
 	Toll      float64
+	Sender    string `json:"sender"`
+	Topic     string `json:"topic"`
 }
 
 func (m TollcalculatorMessage) toString() string {
@@ -83,9 +85,7 @@ func (m TollcalculatorMessage) toString() string {
 }
 
 type TollcalculatorOutput struct {
-	Sender string                `json:"sender"`
-	Topic  string                `json:"topic"`
-	Data   TollcalculatorMessage `json:"data"`
+	Data TollcalculatorMessage `json:"data"`
 }
 
 func (m TollcalculatorOutput) toString() string {
@@ -171,6 +171,8 @@ func processMessage(msg PollutionMatcherMessage) {
 	pricesPerCar[msg.CarId] += priceListSum
 
 	msgData := TollcalculatorMessage{
+		Sender:    "GoMicro-TollCalculator",
+		Topic:     "toll.calculated",
 		MessageId: msg.MessageId,
 		CarId:     msg.CarId,
 		Timestamp: time.Now().Local().Format(time.RFC3339),
@@ -183,9 +185,7 @@ func processMessage(msg PollutionMatcherMessage) {
 
 func publishTollCalculatorMessage(msg TollcalculatorMessage) {
 	outputMsg := TollcalculatorOutput{
-		Sender: "GoMicro-TollCalculator",
-		Topic:  "toll-calculated",
-		Data:   msg,
+		Data: msg,
 	}
 
 	msgDataJSON, err := json.Marshal(outputMsg)

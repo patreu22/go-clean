@@ -82,6 +82,8 @@ type PollutionMatcherMessage struct {
 	CarID     int       `json:"carId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
+	Sender    string    `json:"sender"`
+	Topic     string    `json:"topic"`
 }
 
 func (m PollutionMatcherMessage) toString() string {
@@ -89,9 +91,9 @@ func (m PollutionMatcherMessage) toString() string {
 }
 
 type PollutionMatcherOutput struct {
-	Sender string                  `json:"sender"`
-	Topic  string                  `json:"topic"`
-	Data   PollutionMatcherMessage `json:"data"`
+	// Sender string                  `json:"sender"`
+	// Topic  string                  `json:"topic"`
+	Data PollutionMatcherMessage `json:"data"`
 }
 
 func (m PollutionMatcherOutput) toString() string {
@@ -215,6 +217,7 @@ func processMessage(msg MapMatcherMessageData) {
 			fmt.Println("---float parsing error in segment generation---")
 		}
 		segment := Segment{
+
 			SegmentID:      rand.Intn(10000000000),
 			PollutionLevel: point.pollution,
 			SegmentSections: []Coordinates{
@@ -232,6 +235,8 @@ func processMessage(msg MapMatcherMessageData) {
 	}
 
 	msgData := PollutionMatcherMessage{
+		Topic:     "pollution.matched",
+		Sender:    "GoMicro-PollutionMatcher",
 		MessageID: msg.MessageID,
 		CarID:     msg.CarID,
 		Timestamp: time.Now().Local().Format(time.RFC3339),
@@ -243,9 +248,7 @@ func processMessage(msg MapMatcherMessageData) {
 func publishPollutionMatcherMessage(msg PollutionMatcherMessage) {
 
 	outputMsg := PollutionMatcherOutput{
-		Topic:  "pollution-matched",
-		Sender: "GoMicro-PollutionMatcher",
-		Data:   msg,
+		Data: msg,
 	}
 
 	msgDataJSON, err := json.Marshal(outputMsg)
