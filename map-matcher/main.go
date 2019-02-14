@@ -228,12 +228,12 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 		Timestamp: time.Now().Local().Format(time.RFC3339),
 		Route: []Coordinates{
 			Coordinates{
-				Lat: osrmRes.Tracepoints[0].Location[0],
-				Lon: osrmRes.Tracepoints[0].Location[1],
+				Lat: osrmRes.Tracepoints[0].Location[1],
+				Lon: osrmRes.Tracepoints[0].Location[0],
 			},
 			Coordinates{
-				Lat: osrmRes.Tracepoints[1].Location[0],
-				Lon: osrmRes.Tracepoints[1].Location[1],
+				Lat: osrmRes.Tracepoints[1].Location[1],
+				Lon: osrmRes.Tracepoints[1].Location[0],
 			},
 		},
 	}
