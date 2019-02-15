@@ -175,8 +175,9 @@ func logMessage(MessageID int, msgType string) {
 }
 
 func processMessage(msg MapMatcherMessageData) {
-	//Get the Segments from some API/Service/Whereever
-
+	if len(msg.Route) < 1 {
+		return
+	}
 	rows, err := globalDbConn.Query("select  ST_AsGeoJson(ST_intersection (a.outline, ST_GeomFromText('LINESTRING(" + strconv.FormatFloat(msg.Route[0].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[0].Lat, 'f', -1, 64) + ", " + strconv.FormatFloat(msg.Route[1].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[1].Lat, 'f', -1, 64) + ")', 4326))) as geometry, a.pollution FROM berlin_polygons a WHERE not ST_IsEmpty(ST_AsText(ST_intersection (a.outline, ST_GeomFromText('LINESTRING(" + strconv.FormatFloat(msg.Route[0].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[0].Lat, 'f', -1, 64) + ", " + strconv.FormatFloat(msg.Route[1].Lon, 'f', -1, 64) + " " + strconv.FormatFloat(msg.Route[1].Lat, 'f', -1, 64) + ")',4326))));")
 	if err != nil {
 		fmt.Println("----db query error----")
