@@ -15,12 +15,9 @@ import (
 )
 
 var (
-	natsURI = os.Getenv("NATS_URI")
-	osrmURI = os.Getenv("OSRM_URI")
-	// "nats://nats:IoslProjec2018@iosl2018hxqma76gup7si-vm0.westeurope.cloudapp.azure.com:4222"
-	// subscribeQueueName = "GoMicro_SimulatorData"
+	natsURI            = os.Getenv("NATS_URI")
+	osrmURI            = os.Getenv("OSRM_URI")
 	subscribeQueueName = "location.update"
-	// publishQueueName   = "LOL"
 	publishQueueName   = "location.matched"
 	logQueueName       = "logs"
 	globalNatsConn     *nats.Conn
@@ -30,8 +27,8 @@ var (
 
 //SimulatorMessageData received by the Simulator
 type SimulatorMessageData struct {
-	MessageId int     `json:"MessageId"`
-	CarId     string  `json:"carId"`
+	MessageID int     `json:"messageId"`
+	CarID     string  `json:"carId"`
 	Timestamp string  `json:"timestamp"`
 	Accuracy  float64 `json:"accuracy"`
 	Lat       float64 `json:"lat,float64"`
@@ -54,7 +51,7 @@ func (s SimulatorMessage) toString() string {
 
 //LogMessage to be put into the nats log queue
 type LogMessage struct {
-	data LogMessageData `json:"data"`
+	Data LogMessageData `json:"data"`
 }
 
 func (l LogMessage) toString() string {
@@ -63,7 +60,7 @@ func (l LogMessage) toString() string {
 
 //LogMessageData to be put into the LogMessage
 type LogMessageData struct {
-	MessageId int    `json:"messageId"`
+	MessageID int    `json:"messageId"`
 	Sender    string `json:"sender"`
 	Framework string `json:"framework"`
 	Type      string `json:"type"`
@@ -72,7 +69,7 @@ type LogMessageData struct {
 
 // MapMatcherOutput message struct
 type MapMatcherOutput struct {
-	data MapMatcherMessage `json:"data"`
+	Data MapMatcherMessage `json:"data"`
 }
 
 func (m MapMatcherOutput) toString() string {
@@ -81,12 +78,12 @@ func (m MapMatcherOutput) toString() string {
 
 // MapMatcherMessage struct
 type MapMatcherMessage struct {
-	MessageId int           `json:"MessageId"`
-	carID     string        `json:"carId"`
-	timestamp string        `json:"timestamp"`
-	route     []Coordinates `json:"route"`
-	sender    string        `json:"sender"`
-	topic     string        `json:"topic"`
+	MessageID int           `json:"MessageId"`
+	CarID     string        `json:"CarId"`
+	Timestamp string        `json:"timestamp"`
+	Route     []Coordinates `json:"route"`
+	Sender    string        `json:"sender"`
+	Topic     string        `json:"topic"`
 }
 
 func (m MapMatcherMessage) toString() string {
@@ -122,13 +119,13 @@ func (r OSRMResponse) toString() string {
 
 func pushToMessageQueue(ms SimulatorMessageData) {
 
-	messageQueue[ms.CarId] = append(messageQueue[ms.CarId], ms)
+	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
 
-	if len(messageQueue[ms.CarId]) >= messageQueueLength {
-		msg1 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-1]
-		msg2 := messageQueue[ms.CarId][len(messageQueue[ms.CarId])-2]
-		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
-		messageQueue[ms.CarId] = messageQueue[ms.CarId][:len(messageQueue[ms.CarId])-1]
+	if len(messageQueue[ms.CarID]) >= messageQueueLength {
+		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
+		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
+		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
 		processMessage(msg1, msg2)
 	}
 
@@ -161,7 +158,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("error:", err)
 		}
-		logMessage(msg.Data.MessageId, "received")
+		logMessage(msg.Data.MessageID, "received")
 		fmt.Println(msg.toString())
 		pushToMessageQueue(msg.Data)
 
@@ -173,10 +170,10 @@ func main() {
 	}
 }
 
-func logMessage(MessageId int, msgType string) {
+func logMessage(MessageID int, msgType string) {
 	msg := LogMessage{
-		data: LogMessageData{
-			MessageId: MessageId,
+		Data: LogMessageData{
+			MessageID: MessageID,
 			Sender:    "map-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
@@ -199,7 +196,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Println(msg1.toString())
 	fmt.Println("----MESSAGE2----")
 	fmt.Println(msg2.toString())
-	fmt.Println("---sending data to osrm---")
+	fmt.Println("---sending Data to osrm---")
 	resp, err := http.Get("http://" + osrmURI + "/match/v1/car/" + strconv.FormatFloat(msg1.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg1.Lat, 'f', -1, 64) + ";" + strconv.FormatFloat(msg2.Lon, 'f', -1, 64) + "," + strconv.FormatFloat(msg2.Lat, 'f', -1, 64) + "?radiuses=100.0;100.0" /*strconv.FormatFloat(msg1.Accuracy, 'f', -1, 64)*/ /* + strconv.FormatFloat(msg2.Accuracy, 'f', -1, 64)*/)
 	if err != nil {
 		fmt.Printf("--- OSRM error!----\n")
@@ -223,12 +220,12 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	fmt.Println(osrmRes.toString())
 
 	msgData := MapMatcherMessage{
-		sender:    "GoMicro-MapMatcher",
-		topic:     "location.matched",
-		MessageId: msg1.MessageId,
-		carID:     msg1.CarId,
-		timestamp: time.Now().Local().Format(time.RFC3339),
-		route: []Coordinates{
+		Sender:    "GoMicro-MapMatcher",
+		Topic:     "location.matched",
+		MessageID: msg1.MessageID,
+		CarID:     msg1.CarID,
+		Timestamp: time.Now().Local().Format(time.RFC3339),
+		Route: []Coordinates{
 			Coordinates{
 				Lat: osrmRes.Tracepoints[0].Location[1],
 				Lon: osrmRes.Tracepoints[0].Location[0],
@@ -241,7 +238,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	}
 
 	mmOutput := MapMatcherOutput{
-		data: msgData,
+		Data: msgData,
 	}
 
 	publishMapMatcherMessage(mmOutput)
@@ -254,7 +251,7 @@ func publishMapMatcherMessage(msg MapMatcherOutput) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, mmOutput)
-	logMessage(msg.data.MessageId, "sent")
+	logMessage(msg.Data.MessageID, "sent")
 	fmt.Println("---published message---\n" + msg.toString())
 	fmt.Println("--- Publishing process completed --- \n")
 }

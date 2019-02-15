@@ -40,15 +40,15 @@ type Coordinates struct {
 
 //Segment is a polluted area and defined by a polygon between segment sections
 type Segment struct {
-	SegmentId       int           `json:"segmentId"`
+	SegmentID       int           `json:"segmentId"`
 	PollutionLevel  int           `json:"pollutionLevel"`
 	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
-	MessageId int       `json:"messageId"`
-	CarId     int       `json:"carId"`
+	MessageID int       `json:"messageId"`
+	CarID     int       `json:"carId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
 }
@@ -64,7 +64,7 @@ type LogMessage struct {
 
 //LogMessageData which is part of the LogMessage
 type LogMessageData struct {
-	MessageId int    `json:"MessageId"`
+	MessageID int    `json:"messageId"`
 	Sender    string `json:"sender"`
 	Framework string `json:"framework"`
 	Type      string `json:"type"`
@@ -72,8 +72,8 @@ type LogMessageData struct {
 }
 
 type TollcalculatorMessage struct {
-	MessageId int     `json:MessageId`
-	CarId     int     `json:CarId`
+	MessageID int     `json:messageId`
+	CarID     int     `json:carId`
 	Timestamp string  `json:timestamp`
 	Toll      float64 `json:toll`
 	Sender    string  `json:"sender"`
@@ -121,7 +121,7 @@ func main() {
 		if err2 != nil {
 			fmt.Println("---error:---\n", err)
 		}
-		logMessage(msg.MessageId, "received")
+		logMessage(msg.MessageID, "received")
 		processMessage(msg)
 
 	})
@@ -132,10 +132,10 @@ func main() {
 	}
 }
 
-func logMessage(MessageId int, msgType string) {
+func logMessage(MessageID int, msgType string) {
 	msg := LogMessage{
 		Data: LogMessageData{
-			MessageId: MessageId,
+			MessageID: MessageID,
 			Sender:    "toll-calculator",
 			Framework: "gomicro",
 			Type:      msgType,
@@ -155,10 +155,10 @@ func logMessage(MessageId int, msgType string) {
 
 func processMessage(msg PollutionMatcherMessage) {
 	// Calculate the fee based on the given PollutionMatcherMessage
-	fmt.Print(msg.CarId)
+	fmt.Print(msg.CarID)
 	fmt.Println(msg.toString())
 	time.Sleep(2000 * time.Millisecond)
-	logMessage(msg.MessageId, "sent")
+	logMessage(msg.MessageID, "sent")
 
 	priceListSum := 0.0
 	for _, seg := range msg.Segments {
@@ -168,15 +168,15 @@ func processMessage(msg PollutionMatcherMessage) {
 
 	}
 
-	pricesPerCar[msg.CarId] += priceListSum
+	pricesPerCar[msg.CarID] += priceListSum
 
 	msgData := TollcalculatorMessage{
 		Sender:    "GoMicro-TollCalculator",
 		Topic:     "toll.calculated",
-		MessageId: msg.MessageId,
-		CarId:     msg.CarId,
+		MessageID: msg.MessageID,
+		CarID:     msg.CarID,
 		Timestamp: time.Now().Local().Format(time.RFC3339),
-		Toll:      pricesPerCar[msg.CarId],
+		Toll:      pricesPerCar[msg.CarID],
 	}
 
 	publishTollCalculatorMessage(msgData)
@@ -194,7 +194,7 @@ func publishTollCalculatorMessage(msg TollcalculatorMessage) {
 	}
 
 	globalNatsConn.Publish(publishQueueName, msgDataJSON)
-	logMessage(msg.MessageId, "sent")
+	logMessage(msg.MessageID, "sent")
 	fmt.Println("---published message---\n" + msg.toString())
 	fmt.Println("--- Publishing process completed ---")
 }
