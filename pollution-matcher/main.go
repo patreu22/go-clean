@@ -133,7 +133,7 @@ func main() {
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
 		}
 		err2 := json.Unmarshal(bytes, &msg)
 		if err2 != nil {

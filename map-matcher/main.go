@@ -78,8 +78,8 @@ func (m MapMatcherOutput) toString() string {
 
 // MapMatcherMessage struct
 type MapMatcherMessage struct {
-	MessageID int           `json:"MessageId"`
-	CarID     string        `json:"CarId"`
+	MessageID int           `json:"messageId"`
+	CarID     string        `json:"carId"`
 	Timestamp string        `json:"timestamp"`
 	Route     []Coordinates `json:"route"`
 	Sender    string        `json:"sender"`
@@ -210,10 +210,12 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 	bytes, err := rawJSON.MarshalJSON()
 	if err != nil {
 		fmt.Println("---error:---\n", err)
+		return
 	}
 	err2 := json.Unmarshal(bytes, &osrmRes)
 	if err2 != nil {
 		fmt.Println("---error:---\n", err)
+		return
 	}
 
 	fmt.Printf("--- OSRM output----\n")
