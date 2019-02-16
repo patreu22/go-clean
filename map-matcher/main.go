@@ -159,7 +159,6 @@ func main() {
 			fmt.Println("error:", err)
 		}
 		logMessage(msg.Data.MessageID, "received")
-		fmt.Println(msg.toString())
 		pushToMessageQueue(msg.Data)
 
 	})
