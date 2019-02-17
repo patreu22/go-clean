@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	_ "github.com/lib/pq"
 	"log"
 	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	micro "github.com/micro/go-micro"
 	nats "github.com/nats-io/go-nats"
@@ -39,26 +40,22 @@ type Segment struct {
 	SegmentSections []Coordinates `json:"segmentSections"`
 }
 
-//MapMatcherMessage the message the mapmatcher processes via NATs
+// MapMatcherMessage struct
 type MapMatcherMessage struct {
-	Sender string                `json:"sender"`
-	Topic  string                `json:"topic"`
-	Data   MapMatcherMessageData `json:"data"`
+	MessageID int           `json:"messageId"`
+	CarID     string        `json:"carId"`
+	Timestamp string        `json:"timestamp"`
+	Route     []Coordinates `json:"route"`
+	Sender    string        `json:"sender"`
+	Topic     string        `json:"topic"`
+}
+
+//MapMatcherOutput message
+type MapMatcherOutput struct {
+	Data MapMatcherMessage `json:"data"`
 }
 
 func (m MapMatcherMessage) toString() string {
-	return fmt.Sprintf("%+v\n", m)
-}
-
-//MapMatcherMessageData the map matcher data
-type MapMatcherMessageData struct {
-	MessageID int           `json:"messageId"`
-	CarID     int           `json:"carId"`
-	Timestamp string        `json:"timestamp"`
-	Route     []Coordinates `json:"route"`
-}
-
-func (m MapMatcherMessageData) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
@@ -79,7 +76,7 @@ type LogMessageData struct {
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
 	MessageID int       `json:"messageId"`
-	CarID     int       `json:"carId"`
+	CarID     string    `json:"carId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
 	Sender    string    `json:"sender"`
@@ -90,6 +87,7 @@ func (m PollutionMatcherMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
+//PollutionMatcherOutput message
 type PollutionMatcherOutput struct {
 	Data PollutionMatcherMessage `json:"data"`
 }
@@ -129,7 +127,7 @@ func main() {
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
 		fmt.Printf("---Received a message:---\n%s\n", string(m.Data))
-		var msg MapMatcherMessage
+		var msg MapMatcherOutput
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
 		if err != nil {
@@ -137,10 +135,9 @@ func main() {
 		}
 		err2 := json.Unmarshal(bytes, &msg)
 		if err2 != nil {
-			fmt.Println("---error:---\n", err)
+			fmt.Println("Peeep")
+			fmt.Println("---error:---\n", err2)
 		}
-		fmt.Println("---Marshalled message---")
-		fmt.Println(msg.Data.toString())
 		logMessage(msg.Data.MessageID, "received")
 		processMessage(msg.Data)
 
@@ -153,13 +150,14 @@ func main() {
 }
 
 func logMessage(MessageID int, msgType string) {
+	RFC3339Milli := "2006-01-02T15:04:05.000Z07:00"
 	msg := LogMessage{
 		Data: LogMessageData{
 			MessageID: MessageID,
 			Sender:    "pollution-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
-			Timestamp: time.Now().Local().Format(time.RFC3339),
+			Timestamp: time.Now().Local().Format(RFC3339Milli),
 		},
 	}
 
@@ -174,7 +172,7 @@ func logMessage(MessageID int, msgType string) {
 	fmt.Println("\n")
 }
 
-func processMessage(msg MapMatcherMessageData) {
+func processMessage(msg MapMatcherMessage) {
 	if len(msg.Route) < 1 {
 		return
 	}

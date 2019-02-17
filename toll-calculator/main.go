@@ -29,7 +29,7 @@ var (
 		8: 8,
 		9: 9,
 	}
-	pricesPerCar = make(map[int]float64)
+	pricesPerCar = make(map[string]float64)
 )
 
 //Coordinates Struct to unite a Latitude and Longitude to one location
@@ -48,9 +48,11 @@ type Segment struct {
 //PollutionMatcherMessage Data the pollution matcher is sending after processing
 type PollutionMatcherMessage struct {
 	MessageID int       `json:"messageId"`
-	CarID     int       `json:"carId"`
+	CarID     string    `json:"carId"`
 	Timestamp string    `json:"timestamp"`
 	Segments  []Segment `json:"segments"`
+	Sender    string    `json:"sender"`
+	Topic     string    `json:"topic"`
 }
 
 func (m PollutionMatcherMessage) toString() string {
@@ -62,6 +64,11 @@ type LogMessage struct {
 	Data LogMessageData `json:"data"`
 }
 
+//PollutionMatcherOutput message
+type PollutionMatcherOutput struct {
+	Data PollutionMatcherMessage `json:"data"`
+}
+
 //LogMessageData which is part of the LogMessage
 type LogMessageData struct {
 	MessageID int    `json:"messageId"`
@@ -71,24 +78,26 @@ type LogMessageData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-type TollcalculatorMessage struct {
-	MessageID int     `json:messageId`
-	CarID     int     `json:carId`
-	Timestamp string  `json:timestamp`
-	Toll      float64 `json:toll`
+//TollCalculatorMessage sent out
+type TollCalculatorMessage struct {
+	MessageID int     `json:"messageId"`
+	CarID     string  `json:"carId"`
+	Timestamp string  `json:"timestamp"`
+	Toll      float64 `json:"toll"`
 	Sender    string  `json:"sender"`
 	Topic     string  `json:"topic"`
 }
 
-func (m TollcalculatorMessage) toString() string {
+func (m TollCalculatorMessage) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
-type TollcalculatorOutput struct {
-	Data TollcalculatorMessage `json:"data"`
+//TollCalculatorOutput message
+type TollCalculatorOutput struct {
+	Data TollCalculatorMessage `json:"data"`
 }
 
-func (m TollcalculatorOutput) toString() string {
+func (m TollCalculatorOutput) toString() string {
 	return fmt.Sprintf("%+v\n", m)
 }
 
@@ -111,7 +120,7 @@ func main() {
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
 		fmt.Printf("---Received a message:---\n%s\n", string(m.Data))
-		var msg PollutionMatcherMessage
+		var msg PollutionMatcherOutput
 		rawJSONMsg := json.RawMessage(m.Data)
 		bytes, err := rawJSONMsg.MarshalJSON()
 		if err != nil {
@@ -119,10 +128,11 @@ func main() {
 		}
 		err2 := json.Unmarshal(bytes, &msg)
 		if err2 != nil {
-			fmt.Println("---error:---\n", err)
+			fmt.Println("---error:---\n", err2)
 		}
-		logMessage(msg.MessageID, "received")
-		processMessage(msg)
+
+		logMessage(msg.Data.MessageID, "received")
+		processMessage(msg.Data)
 
 	})
 
@@ -133,13 +143,14 @@ func main() {
 }
 
 func logMessage(MessageID int, msgType string) {
+	RFC3339Milli := "2006-01-02T15:04:05.000Z07:00"
 	msg := LogMessage{
 		Data: LogMessageData{
 			MessageID: MessageID,
 			Sender:    "toll-calculator",
 			Framework: "gomicro",
 			Type:      msgType,
-			Timestamp: time.Now().Local().Format(time.RFC3339),
+			Timestamp: time.Now().Local().Format(RFC3339Milli),
 		},
 	}
 
@@ -154,11 +165,8 @@ func logMessage(MessageID int, msgType string) {
 }
 
 func processMessage(msg PollutionMatcherMessage) {
-	// Calculate the fee based on the given PollutionMatcherMessage
-	fmt.Print(msg.CarID)
-	fmt.Println(msg.toString())
-	time.Sleep(2000 * time.Millisecond)
-	logMessage(msg.MessageID, "sent")
+	fmt.Printf("-------------------- PM MESSAGE!!! ----------\n\n")
+	fmt.Printf("%s\n\n", msg.toString())
 
 	priceListSum := 0.0
 	for _, seg := range msg.Segments {
@@ -170,7 +178,7 @@ func processMessage(msg PollutionMatcherMessage) {
 
 	pricesPerCar[msg.CarID] += priceListSum
 
-	msgData := TollcalculatorMessage{
+	msgData := TollCalculatorMessage{
 		Sender:    "GoMicro-TollCalculator",
 		Topic:     "toll.calculated",
 		MessageID: msg.MessageID,
@@ -183,8 +191,8 @@ func processMessage(msg PollutionMatcherMessage) {
 
 }
 
-func publishTollCalculatorMessage(msg TollcalculatorMessage) {
-	outputMsg := TollcalculatorOutput{
+func publishTollCalculatorMessage(msg TollCalculatorMessage) {
+	outputMsg := TollCalculatorOutput{
 		Data: msg,
 	}
 
@@ -199,7 +207,7 @@ func publishTollCalculatorMessage(msg TollcalculatorMessage) {
 	fmt.Println("--- Publishing process completed ---")
 }
 
-// returns haversine distance in meters
+//Distance returns haversine distance in meters
 func Distance(lat1, lon1, lat2, lon2 float64) float64 {
 	// convert to radians
 	// must cast radius as float to multiply later
