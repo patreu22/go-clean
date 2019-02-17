@@ -170,13 +170,14 @@ func main() {
 }
 
 func logMessage(MessageID int, msgType string) {
+	RFC3339Milli := "2006-01-02T15:04:05.000Z07:00"
 	msg := LogMessage{
 		Data: LogMessageData{
 			MessageID: MessageID,
 			Sender:    "map-matcher",
 			Framework: "gomicro",
 			Type:      msgType,
-			Timestamp: time.Now().Local().Format(time.RFC3339),
+			Timestamp: time.Now().Local().Format(RFC3339Milli),
 		},
 	}
 
