@@ -126,7 +126,7 @@ func pushToMessageQueue(ms SimulatorMessageData) {
 		msg2 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-2]
 		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
 		messageQueue[ms.CarID] = messageQueue[ms.CarID][:len(messageQueue[ms.CarID])-1]
-		processMessage(msg1, msg2)
+		go processMessage(msg1, msg2)
 	}
 
 }
@@ -147,26 +147,29 @@ func main() {
 	globalNatsConn = nc
 
 	nc.Subscribe(subscribeQueueName, func(m *nats.Msg) {
-		fmt.Println("---Received a message:---\n", string(m.Data))
-		var msg SimulatorMessage
-		rawJSONMsg := json.RawMessage(m.Data)
-		bytes, err := rawJSONMsg.MarshalJSON()
-		if err != nil {
-			fmt.Println(err)
-		}
-		err2 := json.Unmarshal(bytes, &msg)
-		if err2 != nil {
-			fmt.Println("error:", err)
-		}
-		logMessage(msg.Data.MessageID, "received")
-		pushToMessageQueue(msg.Data)
-
+		go subscribeHandler(m)
 	})
 
 	// Run server
 	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func subscribeHandler(m *nats.Msg) {
+	fmt.Println("---Received a message:---\n", string(m.Data))
+	var msg SimulatorMessage
+	rawJSONMsg := json.RawMessage(m.Data)
+	bytes, err := rawJSONMsg.MarshalJSON()
+	if err != nil {
+		fmt.Println(err)
+	}
+	err2 := json.Unmarshal(bytes, &msg)
+	if err2 != nil {
+		fmt.Println("error:", err)
+	}
+	logMessage(msg.Data.MessageID, "received")
+	pushToMessageQueue(msg.Data)
 }
 
 func logMessage(MessageID int, msgType string) {

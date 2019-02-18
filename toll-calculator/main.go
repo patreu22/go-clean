@@ -132,7 +132,7 @@ func main() {
 		}
 
 		logMessage(msg.Data.MessageID, "received")
-		processMessage(msg.Data)
+		go processMessage(msg.Data)
 
 	})
 

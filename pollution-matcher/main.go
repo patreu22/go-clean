@@ -139,7 +139,7 @@ func main() {
 			fmt.Println("---error:---\n", err2)
 		}
 		logMessage(msg.Data.MessageID, "received")
-		processMessage(msg.Data)
+		go processMessage(msg.Data)
 
 	})
 
