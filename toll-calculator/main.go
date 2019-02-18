@@ -172,7 +172,7 @@ func processMessage(msg PollutionMatcherMessage) {
 	for _, seg := range msg.Segments {
 		var sections = seg.SegmentSections
 		distance := Distance(sections[0].Lat, sections[0].Lon, sections[1].Lat, sections[1].Lon)
-		priceListSum += distance * float64(priceList[seg.PollutionLevel])
+		priceListSum += distance * float64(priceList[seg.PollutionLevel]) / 10
 
 	}
 

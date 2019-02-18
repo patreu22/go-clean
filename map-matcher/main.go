@@ -120,6 +120,7 @@ func (r OSRMResponse) toString() string {
 func pushToMessageQueue(ms SimulatorMessageData) {
 
 	messageQueue[ms.CarID] = append(messageQueue[ms.CarID], ms)
+	fmt.Println(messageQueue)
 
 	if len(messageQueue[ms.CarID]) >= messageQueueLength {
 		msg1 := messageQueue[ms.CarID][len(messageQueue[ms.CarID])-1]
@@ -246,7 +247,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 		Data: msgData,
 	}
 
-	go publishMapMatcherMessage(mmOutput)
+	publishMapMatcherMessage(mmOutput)
 }
 
 func publishMapMatcherMessage(msg MapMatcherOutput) {
