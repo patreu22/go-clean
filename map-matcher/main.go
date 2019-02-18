@@ -246,7 +246,7 @@ func processMessage(msg1 SimulatorMessageData, msg2 SimulatorMessageData) {
 		Data: msgData,
 	}
 
-	publishMapMatcherMessage(mmOutput)
+	go publishMapMatcherMessage(mmOutput)
 }
 
 func publishMapMatcherMessage(msg MapMatcherOutput) {
